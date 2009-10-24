@@ -1,0 +1,19 @@
+## Interface: 30200
+
+## Title: Diminishing Returns
+## Notes: Attach diminishing return icons to unit frames.
+## Author: Adirelle
+## Version: @project-version@
+## X-Date: @project-date-iso@
+
+## OptionalDeps: LibStub, CallbackHandler-1.0, LibSharedMedia-3.0, SharedMedia, SharedMedia_MyMedia
+
+# LoadManagers: AddonLoader
+# X-LoadOn-Always: delayed
+
+LibAdiEvent-1.0.lua
+
+AdiCastBar.lua
+CastBars.lua
+Layout.lua
+
