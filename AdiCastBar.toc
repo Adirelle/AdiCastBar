@@ -6,12 +6,14 @@
 ## Version: @project-version@
 ## X-Date: @project-date-iso@
 
+## SavedVariables: AdiCastBarDB
 ## OptionalDeps: LibStub, CallbackHandler-1.0, LibSharedMedia-3.0, SharedMedia, SharedMedia_MyMedia
 
 # LoadManagers: AddonLoader
 # X-LoadOn-Always: delayed
 
 LibAdiEvent-1.0.lua
+LibMovable-1.0.lua
 
 AdiCastBar.lua
 CastBars.lua

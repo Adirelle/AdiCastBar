@@ -151,3 +151,23 @@ player:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 180)
 local target = SpawnCastBar('target', 330, 32)
 target:SetPoint("TOP", UIParent, "TOP", 0, -220)
 
+local f = CreateFrame("Frame")
+LibStub('LibAdiEvent-1.0').Embed(f)
+LibStub('LibMovable-1.0').Embed(f)
+
+local function AddonLoaded(self, _, name)
+	if name:lower() ~= "adicastbar" then return end
+	self:UnregisterEvent('ADDON_LOADED', AddonLoaded)
+		
+	_G.AdiCastBarDB = _G.AdiCastBarDB or {}
+	local db = _G.AdiCastBarDB
+	db.player = db.player or {}
+	db.target = db.target or {}
+	print(db, db.player, db.target)
+	
+	self:RegisterMovable(player, db.player, "Player casting bar")
+	self:RegisterMovable(target, db.target, "Target casting bar")
+end
+
+f:RegisterEvent('ADDON_LOADED', AddonLoaded)
+
