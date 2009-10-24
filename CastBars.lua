@@ -50,8 +50,7 @@ local function TimerUpdate(self)
 	end
 end
 
-local function UpdateDisplay(self, name, text, texture, startTime, endTime, notInterruptible, delayed, reversed)
-
+local function UpdateDisplay(self, delayed, reversed, color, name, text, texture, startTime, endTime, notInterruptible)
 	local latency = self.Latency
 	if latency then
 		local delay = self.latency
@@ -77,6 +76,7 @@ local function UpdateDisplay(self, name, text, texture, startTime, endTime, notI
 	self.endTime = endTime
 	self.reversed = reversed
 	
+	self.Bar:SetStatusBarColor(unpack(color))
 	self.Bar:SetMinMaxValues(0, endTime-startTime)
 	self.Bar.Spark:Show()
 	
@@ -110,26 +110,18 @@ local function UpdateDisplay(self, name, text, texture, startTime, endTime, notI
 	return true
 end
 
-local function UpdateCasting(self, delayed)
-	local name, _, text, texture, startTime, endTime, _, _, notInterruptible = UnitCastingInfo(self.unit)
-	if startTime and endTime then 
-		self.Bar:SetStatusBarColor(unpack(COLORS.CAST))
-		return UpdateDisplay(self, name, text, texture, startTime/1000, endTime/1000, notInterruptible, delayed, false)
-	end
-end
-
-local function UpdateChannel(self, delayed)
-	local name, _, text, texture, startTime, endTime, _, _, notInterruptible = UnitChannelInfo(self.unit)
-	if startTime and endTime then 
-		self.Bar:SetStatusBarColor(unpack(COLORS.CHANNEL))
-		return UpdateDisplay(self, name, text, texture, startTime/1000, endTime/1000, notInterruptible, delayed, true)
-	end
-end
-
 local function Update(self, event, unit)
 	if unit and unit ~= self.unit then return end
 	local delayed = (event == "UNIT_SPELLCAST_CHANNEL_UPDATE" or event == "UNIT_SPELLCAST_DELAYED")
-	if not UpdateCasting(self, delayed) and not UpdateChannel(self, delayed) and self:IsShown() then
+	local color, reversed = COLORS.CAST, false
+	local name, _, text, texture, startTime, endTime, _, _, notInterruptible = UnitCastingInfo(self.unit)
+	if not startTime then
+		name, _, text, texture, startTime, endTime, _, _, notInterruptible = UnitChannelInfo(self.unit)
+		color, reversed = COLORS.CHANNEL, true
+	end
+	if startTime then
+		UpdateDisplay(self, delayed, reversed, color, name, text, texture, startTime/1000, endTime/1000, notInterruptible)
+	elseif self:IsShown() then
 		if strmatch(event, '^UNIT_SPELLCAST') then
 			FadeOut(self, event, unit)
 		else
