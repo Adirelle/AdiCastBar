@@ -56,7 +56,7 @@ end
 local function UpdateDisplay(self, delayed, reversed, color, name, text, texture, startTime, endTime, notInterruptible, castId)
 	local latency = self.Latency
 	if latency then
-		local delay = self.latency
+		local delay = self.latency[name]
 		if delay then
 			startTime = startTime - delay
 			endTime = endTime - delay
@@ -136,21 +136,18 @@ local function Update(self, event, unit, spell, _, eventCastId)
 end 
 
 local function LatencyStart(self, event, unit, spell)
-	if unit and unit ~= self.unit then return end
-	if not self.lantecySpell then
-		self.latencySpell = spell
-		self.latencyStart = GetTime()
-		self.latency = nil
-	end
+	if (unit and unit ~= self.unit) or not spell then return end
+	self.latency[spell] = nil
+	self.latencyStart[spell] = GetTime()
 end
 
 local function LatencyEnd(self, event, unit, spell)
-	if unit and unit ~= self.unit then return end
-	if self.latencyStart and self.latencySpell == spell then
-		self.latency = GetTime() - self.latencyStart
+	if (unit and unit ~= self.unit) or not spell then return end
+	local start = self.latencyStart[spell] 
+	if start then
+		self.latency[spell] = GetTime() - start
+		self.latencyStart[spell] = nil
 	end
-	self.latencyStart = nil
-	self.latencySpell = nil
 end
 
 local function noop() end
@@ -167,6 +164,8 @@ function EnableCastBar(self)
 	lae.Embed(self)
 	
 	if self.Latency then
+		self.latency = {}
+		self.latencyStart = {}
 		self:RegisterEvent("UNIT_SPELLCAST_SENT", LatencyStart)
 		self:RegisterEvent("UNIT_SPELLCAST_START", LatencyEnd)
 		self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START", LatencyEnd)
