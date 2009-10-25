@@ -303,7 +303,7 @@ setmetatable(lib.__iterators, {
 				if not nextTarget then
 					return
 				end
-			until nextTarget.key == key
+			until nextOverlay.key == key
 			return nextTarget, nextOverlay
 		end
 		iterators[key] = iterator
