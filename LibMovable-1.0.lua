@@ -22,58 +22,36 @@ local function GetFrameLayout(frame)
 end
 
 local function UpdateDatabase(overlay)
-	local db, target, defaults = overlay.db, overlay.target, overlay.defaults
-	if defaults then
-		local scale, pointFrom, refFrame, pointTo, xOffset, yOffset = GetFrameLayout(target)
-		db.scale = (scale ~= defaults.scale) and scale or nil
-		db.pointFrom = (pointFrom ~= defaults.pointFrom) and pointFrom or nil
-		db.refFrame = (refFrame ~= defaults.refFrame) and refFrame or nil
-		db.pointTo = (pointTo ~= defaults.pointTo) and pointTo or nil
-		db.xOffset = (xOffset ~= defaults.xOffset) and xOffset or nil
-		db.yOffset = (yOffset ~= defaults.yOffset) and yOffset or nil
-	else
-		db.scale, db.pointFrom, db.refFrame, db.pointTo, db.xOffset, db.yOffset = GetFrameLayout(target)
-	end
+	local db, target = overlay.db, overlay.target
+	db.scale, db.pointFrom, db.refFrame, db.pointTo, db.xOffset, db.yOffset = GetFrameLayout(target)
 end
 
-local function ApplyLayout(overlay, force)
-	local db, target, defaults = overlay.db, overlay.target, overlay.defaults
-	if not force and target:IsProtected() and InCombatLockdown() then
+local function ApplyLayout(overlay)
+	if overlay.protected and InCombatLockdown() then
 		overlay.dirty = true
 		return
-	else
-		overlay.dirty = nil
 	end
+	local db, target = overlay.db, overlay.target
 	target:ClearAllPoints()
-	local scale, pointFrom, refFrame, pointTo, xOffset, yOffset =
-		db.scale, db.pointFrom, db.refFrame, db.pointTo, db.xOffset, db.yOffset
-	if defaults then
-		scale = scale or defaults.scale
-		pointFrom = pointFrom or defaults.pointFrom
-		refFrame = refFrame or defaults.refFrame
-		pointTo = pointTo or defaults.pointTo
-		xOffset = xOffset or defaults.xOffset
-		yOffset = yOffset or defaults.yOffset
-	end
-	refFrame = refFrame and _G[refFrame] or target:GetParent()
-	target:SetScale(scale)	
-	target:SetPoint(pointFrom, refFrame, pointTo, xOffset, yOffset)
+	target:SetScale(db.scale)	
+	local refFrame = db.refFrame and _G[db.refFrame] or target:GetParent()
+	target:SetPoint(db.pointFrom, refFrame, db.pointTo, db.xOffset, db.yOffset)
+	overlay.dirty = nil
 end
 
 local function StartMoving(overlay)
-	if overlay.isMoving then return end
+	if overlay.isMoving or (overlay.protected and InCombatLockdown()) then return end
 	overlay.target:SetMovable(true)
 	overlay.target:StartMoving()
 	overlay.isMoving = true
 end
 
 local function StopMoving(overlay)
-	if not overlay.isMoving then return end
-	local db, target, defaults = overlay.db, overlay.target, overlay.defaults
-	target:StopMovingOrSizing()
-	target:SetMovable(false)
-	UpdateDatabase(overlay)
+	if not overlay.isMoving or (overlay.protected and InCombatLockdown()) then return end
+	overlay.target:StopMovingOrSizing()
+	overlay.target:SetMovable(false)
 	overlay.isMoving = nil
+	UpdateDatabase(overlay)
 end
 
 local function ChangeScale(overlay, delta)
@@ -89,20 +67,62 @@ local function ChangeScale(overlay, delta)
 end
 
 local function ResetLayout(overlay)
-	wipe(overlay.db)
+	for k, v in pairs(overlay.defaults) do
+		overlay.db[k] = v
+	end
 	ApplyLayout(overlay)
 end
 
--- Overlay scripts
+local function EnableOverlay(overlay, inCombat)
+	if inCombat and overlay.protected then
+		StopMoving(overlay)
+		overlay:SetBackdropColor(1, 0, 0, 0.4)
+		overlay:EnableMouse(false)
+		overlay:EnableMouseWheel(false)				
+	else	
+		overlay:SetBackdropColor(0, 1, 0, 1)
+		overlay:EnableMouse(true)
+		overlay:EnableMouseWheel(true)				
+	end
+end
 
-local scripts = {
+-- Overlay scripts and event handlers
+
+local scripts, eventHandlers
+
+eventHandlers = {
+
+	PLAYER_REGEN_ENABLED = function(overlay)
+		EnableOverlay(overlay, false)			
+		if overlay.dirty then
+			ApplyLayout(overlay)
+		end
+	end,
+	
+	PLAYER_REGEN_DISABLED = function(overlay)
+		EnableOverlay(overlay, true)
+	end,
+	
+	PLAYER_LOGOUT = function(overlay)
+		local db, defaults = overlay.db, overlay.defaults
+		for k, v in pairs(defaults) do
+			if db[k] == v then
+				db[k] = nil
+			end
+		end
+	end,
+
+}
+
+scripts = {
 
 	OnEnter = function(overlay)
-		GameTooltip:SetOwner(overlay, "ANCHOR_NONE")
+		GameTooltip_SetDefaultAnchor(GameTooltip, overlay)
+		GameTooltip:ClearLines()
 		GameTooltip:AddLine(overlay.label)
-		GameTooltip:AddLine("Drag this using the left mouse button", 1, 1, 1)
-		GameTooltip:AddLine("Use the mousewheel to change the size", 1, 1, 1)
-		GameTooltip:AddLine("Hold Alt and right click to reset to defaults", 1, 1, 1)
+		GameTooltip:AddLine("Drag this using the left mouse button.", 1, 1, 1)
+		GameTooltip:AddLine("Use the mousewheel to change the size.", 1, 1, 1)
+		GameTooltip:AddLine("Hold Alt and right click to reset to defaults.", 1, 1, 1)
 		GameTooltip:Show()
 	end,
 	
@@ -112,30 +132,25 @@ local scripts = {
 		end
 	end,
 
-	OnShow = function(overlay, force)
-		if not force and overlay.target:IsProtected() and InCombatLockdown() then
-			StopMoving(overlay)
-			overlay:SetBackdropColor(0.5, 0.5, 0.5, 1)
-			overlay:EnableMouse(false)
-			overlay:EnableMouseWheel(false)
-		else
-			overlay:SetBackdropColor(0, 1, 0, 1)
-			overlay:EnableMouse(true)
-			overlay:EnableMouseWheel(true)				
-		end
-	end,
-
-	OnEvent = function(overlay, event)
-		if overlay:IsShown() then
-			if event == "PLAYER_REGEN_ENABLED" and overlay.dirty then
-				ApplyLayout(overlay, true)
-				scripts.OnShow(overlay, true)
-			else
-				scripts.OnShow(overlay)
-			end
-		end
+	OnShow = function(overlay)
+		if overlay.protected then
+			overlay:RegisterEvent("PLAYER_REGEN_DISABLED")
+			overlay:RegisterEvent("PLAYER_REGEN_ENABLED")
+		end	
+		EnableOverlay(overlay, InCombatLockdown())
 	end,
 	
+	OnHide = function(overlay)
+		if overlay.protected then
+			overlay:UnregisterEvent("PLAYER_REGEN_DISABLED")
+			overlay:UnregisterEvent("PLAYER_REGEN_ENABLED")
+		end	
+	end,
+
+	OnEvent = function(overlay, event, ...)
+		return eventHandlers[event](overlay, event, ...)
+	end,
+
 	OnMouseDown = function(overlay, button)
 		if button == "LeftButton" then
 			StartMoving(overlay)
@@ -152,8 +167,8 @@ local scripts = {
 
 	OnMouseWheel = function(overlay, delta)
 		ChangeScale(overlay, delta)
-	end,
-	
+	end
+
 }
 
 local function SetScripts(overlay)
@@ -194,6 +209,8 @@ function lib.RegisterMovable(key, target, db, label, anchor)
 	overlay.target = target
 	overlay.db = db or {}
 	overlay.key = key
+	local _, protected = target:IsProtected() 
+	overlay.protected = protected
 
 	local scale, pointFrom, refFrame, pointTo, xOffset, yOffset = GetFrameLayout(target)
 	overlay.defaults = {
@@ -204,12 +221,14 @@ function lib.RegisterMovable(key, target, db, label, anchor)
 		xOffset = xOffset, 
 		yOffset = yOffset
 	}
-	end
 	
-	if target:IsProtected() then
-		overlay:RegisterEvent("PLAYER_REGEN_DISABLED")
-		overlay:RegisterEvent("PLAYER_REGEN_ENABLED")
+	for k, v in pairs(overlay.defaults) do
+		if db[k] == nil then
+			db[k] = v
+		end
 	end
+	overlay:RegisterEvent("PLAYER_LOGOUT")
+	
 	SetScripts(overlay)
 	ApplyLayout(overlay)
 end
@@ -247,7 +266,7 @@ end
 function lib.UpdateLayout(key)
 	for target, overlay in pairs(overlays) do
 		if not key or key == overlay.key then
-			lib.ApplyLayout(overlay)
+			ApplyLayout(overlay)
 		end
 	end
 end
