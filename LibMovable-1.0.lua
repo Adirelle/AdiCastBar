@@ -9,7 +9,7 @@ local lib, oldMinor = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 oldMinor = oldMinor or 0
 
--- Private overlay methods
+-- Frame layout helpers
 
 local function GetFrameLayout(frame)
 	local scale, pointFrom, refFrame, pointTo, xOffset, yOffset = frame:GetScale(), frame:GetPoint()
@@ -17,44 +17,88 @@ local function GetFrameLayout(frame)
 		refFrame = nil
 	elseif refFrame then
 		refFrame = refFrame:GetName()
+		if not refFrame then
+			error("Cannot handle a frame positioned relative to an anonymous frame ("..frame:GetName()..")", 3)
+		end
 	end
 	return scale, pointFrom, refFrame, pointTo, xOffset, yOffset
 end
 
-local function UpdateDatabase(overlay)
+local function __SetFrameLayout(frame, scale, pointFrom, refFrame, pointTo, xOffset, yOffset)
+	refFrame = refFrame and _G[refFrame] or frame:GetParent()
+	frame:ClearAllPoints()
+	frame:SetScale(scale)	
+	frame:SetPoint(pointFrom, refFrame, pointTo, xOffset, yOffset)
+end
+
+local function ProcessPendingLayouts()
+	for frame, layout in pairs(lib.pendingLayouts) do
+		__SetFrameLayout(frame, unpack(layout))
+	end
+	wipe(lib.pendingLayouts)
+end
+
+local function SetFrameLayout(frame, ...)
+	if frame:IsProtected() and InCombatLockdown() then
+		if not lib.oocFrame then	
+			lib.pendingLayouts = {}
+			lib.oocFrame = CreateFrame("Frame")
+			lib.oocFrame:SetScript('OnEvent', ProcessPendingLayouts)
+			lib.oocFrame:RegisterEvent('PLAYER_REGEN_ENABLED')
+		end
+		if not lib.pendingLayouts[frame] then
+			lib.pendingLayouts[frame] = { ... }
+		else
+			local l = lib.pendingLayouts[frame]
+			for i = 1, select('#', ...) do
+				l[i] = select(i, ...)
+			end
+		end
+	else
+		return __SetFrameLayout(frame, ...)
+	end
+end
+
+-- Metatable stuff
+
+lib.frameMeta = lib.frameMeta or { __index = CreateFrame("Frame") }
+lib.proto = lib.proto or {}
+lib.meta = lib.meta or {}
+
+lib.proto = setmetatable(lib.proto, lib.frameMeta)
+lib.meta.__index = lib.proto
+
+-- Overlay methods
+
+local proto = lib.proto
+wipe(proto)
+
+function proto.UpdateDatabase(overlay)
 	local db, target = overlay.db, overlay.target
 	db.scale, db.pointFrom, db.refFrame, db.pointTo, db.xOffset, db.yOffset = GetFrameLayout(target)
 end
 
-local function ApplyLayout(overlay)
-	if overlay.protected and InCombatLockdown() then
-		overlay.dirty = true
-		return
-	end
+function proto.ApplyLayout(overlay)
 	local db, target = overlay.db, overlay.target
-	target:ClearAllPoints()
-	target:SetScale(db.scale)	
-	local refFrame = db.refFrame and _G[db.refFrame] or target:GetParent()
-	target:SetPoint(db.pointFrom, refFrame, db.pointTo, db.xOffset, db.yOffset)
-	overlay.dirty = nil
+	overlay.dirty = not SetFrameLayout(target, db.scale, db.pointFrom, db.refFrame, db.pointTo, db.xOffset, db.yOffset)
 end
 
-local function StartMoving(overlay)
+function proto.StartMoving(overlay)
 	if overlay.isMoving or (overlay.protected and InCombatLockdown()) then return end
 	overlay.target:SetMovable(true)
 	overlay.target:StartMoving()
 	overlay.isMoving = true
 end
 
-local function StopMoving(overlay)
+function proto.StopMoving(overlay)
 	if not overlay.isMoving or (overlay.protected and InCombatLockdown()) then return end
 	overlay.target:StopMovingOrSizing()
 	overlay.target:SetMovable(false)
 	overlay.isMoving = nil
-	UpdateDatabase(overlay)
+	overlay:UpdateDatabase()
 end
 
-local function ChangeScale(overlay, delta)
+function proto.ChangeScale(overlay, delta)
 	local target = overlay.target
 	local oldScale, from, frame, to, oldX, oldY = target:GetScale(), target:GetPoint()			
 	local newScale = math.max(math.min(oldScale + 0.1 * delta, 3.0), 0.2)
@@ -62,20 +106,20 @@ local function ChangeScale(overlay, delta)
 		local newX, newY = oldX / newScale * oldScale, oldY / newScale * oldScale
 		target:SetScale(newScale)
 		target:SetPoint(from, frame, to, newX, newY)
-		UpdateDatabase(overlay)
+		overlay:UpdateDatabase()
 	end
 end
 
-local function ResetLayout(overlay)
+function proto.ResetLayout(overlay)
 	for k, v in pairs(overlay.defaults) do
 		overlay.db[k] = v
 	end
-	ApplyLayout(overlay)
+	overlay:ApplyLayout()
 end
 
-local function EnableOverlay(overlay, inCombat)
+function proto.EnableOverlay(overlay, inCombat)
 	if inCombat and overlay.protected then
-		StopMoving(overlay)
+		overlay:StopMoving()
 		overlay:SetBackdropColor(1, 0, 0, 0.4)
 		overlay:EnableMouse(false)
 		overlay:EnableMouseWheel(false)				
@@ -86,177 +130,209 @@ local function EnableOverlay(overlay, inCombat)
 	end
 end
 
--- Overlay scripts and event handlers
-
-local scripts, eventHandlers
-
-eventHandlers = {
-
-	PLAYER_REGEN_ENABLED = function(overlay)
-		EnableOverlay(overlay, false)			
-		if overlay.dirty then
-			ApplyLayout(overlay)
+function proto.SetScripts(overlay)
+	for name, handler in pairs(proto) do
+		if name:match('^On') then
+			overlay:SetScript(name, handler)
 		end
-	end,
-	
-	PLAYER_REGEN_DISABLED = function(overlay)
-		EnableOverlay(overlay, true)
-	end,
-	
-	PLAYER_LOGOUT = function(overlay)
-		local db, defaults = overlay.db, overlay.defaults
-		for k, v in pairs(defaults) do
-			if db[k] == v then
-				db[k] = nil
-			end
-		end
-	end,
-
-}
-
-scripts = {
-
-	OnEnter = function(overlay)
-		GameTooltip_SetDefaultAnchor(GameTooltip, overlay)
-		GameTooltip:ClearLines()
-		GameTooltip:AddLine(overlay.label)
-		GameTooltip:AddLine("Drag this using the left mouse button.", 1, 1, 1)
-		GameTooltip:AddLine("Use the mousewheel to change the size.", 1, 1, 1)
-		GameTooltip:AddLine("Hold Alt and right click to reset to defaults.", 1, 1, 1)
-		GameTooltip:Show()
-	end,
-	
-	OnLeave = function(overlay)
-		if GameTooltip:GetOwner() == overlay then
-			GameTooltip:Hide()
-		end
-	end,
-
-	OnShow = function(overlay)
-		if overlay.protected then
-			overlay:RegisterEvent("PLAYER_REGEN_DISABLED")
-			overlay:RegisterEvent("PLAYER_REGEN_ENABLED")
-		end	
-		EnableOverlay(overlay, InCombatLockdown())
-	end,
-	
-	OnHide = function(overlay)
-		if overlay.protected then
-			overlay:UnregisterEvent("PLAYER_REGEN_DISABLED")
-			overlay:UnregisterEvent("PLAYER_REGEN_ENABLED")
-		end	
-	end,
-
-	OnEvent = function(overlay, event, ...)
-		return eventHandlers[event](overlay, event, ...)
-	end,
-
-	OnMouseDown = function(overlay, button)
-		if button == "LeftButton" then
-			StartMoving(overlay)
-		end
-	end,
-
-	OnMouseUp = function(overlay, button)
-		if button == "LeftButton" then
-			StopMoving(overlay)
-		elseif button == "RightButton" and IsAltKeyDown() then
-			ResetLayout(overlay)
-		end
-	end,
-
-	OnMouseWheel = function(overlay, delta)
-		ChangeScale(overlay, delta)
 	end
+end
 
-}
+-- Overlay event handlers
 
-local function SetScripts(overlay)
-	for name, handler in pairs(scripts) do
-		overlay:SetScript(name, handler)
+function proto.PLAYER_REGEN_ENABLED(overlay)
+	overlay:EnableOverlay(false)			
+	if overlay.dirty then
+		overlay:ApplyLayout()
 	end
+end
+	
+function proto.PLAYER_REGEN_DISABLED(overlay)
+	overlay:EnableOverlay(true)
+end
+	
+function proto.PLAYER_LOGOUT(overlay)
+	local db, defaults = overlay.db, overlay.defaults
+	for k, v in pairs(defaults) do
+		if db[k] == v then
+			db[k] = nil
+		end
+	end
+end
+
+-- Overlay scripts
+
+function proto.OnEnter(overlay)
+	GameTooltip_SetDefaultAnchor(GameTooltip, overlay)
+	GameTooltip:ClearLines()
+	GameTooltip:AddLine(overlay.label)
+	GameTooltip:AddLine("Drag this using the left mouse button.", 1, 1, 1)
+	GameTooltip:AddLine("Use the mousewheel to change the size.", 1, 1, 1)
+	GameTooltip:AddLine("Hold Alt and right click to reset to defaults.", 1, 1, 1)
+	GameTooltip:Show()
+end
+	
+function proto.OnLeave(overlay)
+	if GameTooltip:GetOwner() == overlay then
+		GameTooltip:Hide()
+	end
+end
+
+function proto.OnShow(overlay)
+	if overlay.protected then
+		overlay:RegisterEvent("PLAYER_REGEN_DISABLED")
+		overlay:RegisterEvent("PLAYER_REGEN_ENABLED")
+	end	
+	overlay:EnableOverlay(InCombatLockdown())
+end
+	
+function proto.OnHide(overlay)
+	if overlay.protected then
+		overlay:UnregisterEvent("PLAYER_REGEN_DISABLED")
+		overlay:UnregisterEvent("PLAYER_REGEN_ENABLED")
+	end	
+end
+
+function proto.OnEvent(overlay, event, ...)
+	return overlay[event](overlay, event, ...)
+end
+
+function proto.OnMouseDown(overlay, button)
+	if button == "LeftButton" then
+		overlay:StartMoving()
+	end
+end
+
+function proto.OnMouseUp(overlay, button)
+	if button == "LeftButton" then
+		overlay:StopMoving()
+	elseif button == "RightButton" and IsAltKeyDown() then
+		overlay:ResetLayout()
+	end
+end
+
+function proto.OnMouseWheel(overlay, delta)
+	overlay:ChangeScale(delta)
 end
 
 -- Public API
 
 lib.overlays = lib.overlays or {}
+lib.overlaysToBe = lib.overlaysToBe or {}
 local overlays = lib.overlays
+local overlaysToBe = lib.overlaysToBe
 
 local overlayBackdrop = {
 	bgFile = [[Interface\Tooltips\UI-Tooltip-Background]], tile = true, tileSize = 16 
 }
 
 function lib.RegisterMovable(key, target, db, label, anchor)
-	if overlays[target] then return end
-	local overlay = CreateFrame("Frame", nil, UIParent)
-	overlays[target] = overlay
+	if overlaysToBe[target] or overlays[target] then return end
 
-	overlay:SetBackdrop(overlayBackdrop)
-	overlay:SetBackdropBorderColor(0,0,0,0)	
-	overlay:SetAllPoints(anchor or target)
-	overlay:Hide()
-
-	label = label or target:GetName()
-	if label then
-		local text = overlay:CreateFontString(nil, "ARTWORK", "GameFontWhite")
-		text:SetAllPoints(overlay)
-		text:SetJustifyH("CENTER")
-		text:SetJustifyV("MIDDLE")
-		text:SetText(label)
-	end
-	
-	overlay.label = label
-	overlay.target = target
-	overlay.db = db or {}
-	overlay.key = key
-	local _, protected = target:IsProtected() 
-	overlay.protected = protected
-
+	local protected = target:IsProtected() 
 	local scale, pointFrom, refFrame, pointTo, xOffset, yOffset = GetFrameLayout(target)
-	overlay.defaults = {
-		scale = scale, 
-		pointFrom = pointFrom, 
-		refFrame = refFrame,
-		pointTo = pointTo,
-		xOffset = xOffset, 
-		yOffset = yOffset
-	}
-	
-	for k, v in pairs(overlay.defaults) do
-		if db[k] == nil then
-			db[k] = v
-		end
+	label = label or target:GetName()
+	if db then
+		SetFrameLayout(
+			target,
+			db.scale or scale,
+			db.pointFrom or pointFrom,
+			db.refFrame or refFrame,
+			db.pointTo or pointTo,
+			db.xOffset or xOffset,
+			db.yOffset or yOffset
+		)
+	else
+		db = {}
 	end
-	overlay:RegisterEvent("PLAYER_LOGOUT")
 	
-	SetScripts(overlay)
-	ApplyLayout(overlay)
+	overlaysToBe[target] = function(testKey)
+		if (testKey and testKey ~= key) then return end
+		local overlay = setmetatable(CreateFrame("Frame", nil, UIParent), lib.meta)
+		overlaysToBe[target] = nil
+		overlays[target] = overlay
+		
+		overlay:SetBackdrop(overlayBackdrop)
+		overlay:SetBackdropBorderColor(0,0,0,0)	
+		overlay:SetAllPoints(anchor or target)
+		overlay:RegisterEvent("PLAYER_LOGOUT")
+		overlay:SetScripts()
+		overlay:Hide()
+
+		if label then
+			local text = overlay:CreateFontString(nil, "ARTWORK", "GameFontWhite")
+			text:SetAllPoints(overlay)
+			text:SetJustifyH("CENTER")
+			text:SetJustifyV("MIDDLE")
+			text:SetText(label)
+		end
+	
+		overlay.label = label
+		overlay.target = target
+		overlay.db = db
+		overlay.key = key
+		overlay.protected = protected
+		overlay.defaults = {
+			scale = scale, 
+			pointFrom = pointFrom, 
+			refFrame = refFrame,
+			pointTo = pointTo,
+			xOffset = xOffset, 
+			yOffset = yOffset
+		}
+	
+		for k, v in pairs(overlay.defaults) do
+			if db[k] == nil then
+				db[k] = v
+			end
+		end
+
+		overlay:ApplyLayout()
+	end
+	
 end
 
--- Update existing overlays
-for target, overlay in pairs(overlays) do
-	SetScripts(overlay)
+lib.__iterators = lib.__iterators or { [false] = next } 
+
+setmetatable(lib.__iterators, {
+	__index = function(iterators, key)
+		local iterator = function(overlays, target)
+			local nextTarget, nextOverlay
+			repeat
+				nextTarget, nextOverlay = next(overlays, target)
+				if not nextTarget then
+					return
+				end
+			until nextTarget.key == key
+			return nextTarget, nextOverlay
+		end
+		iterators[key] = iterator
+		return iterator
+	end,
+})
+
+function lib.IterateOverlays(key)
+	return lib.__iterators[key or false], overlays
 end
 
 function lib.Lock(key)
-	for target, overlay in pairs(overlays) do
-		if not key or key == overlay.key then
-			overlay:Hide()
-		end
+	for _, overlay in lib.IterateOverlays(key) do
+		overlay:Hide()
 	end
 end
 
 function lib.Unlock(key)
-	for target, overlay in pairs(overlays) do
-		if not key or key == overlay.key then
-			overlay:Show()
-		end
+	for _, spawnFunc in pairs(overlaysToBe) do
+		spawnFunc(key)
+	end
+	for _, overlay in lib.IterateOverlays(key) do
+		overlay:Show()
 	end
 end
 
 function lib.IsLocked(key)
-	for target, overlay in pairs(overlays) do
-		if (not key or key == overlay.key) and overlay:IsShown() then	
+	for _, overlay in lib.IterateOverlays(key) do
+		if overlay:IsShown() then
 			return false
 		end
 	end
@@ -264,10 +340,8 @@ function lib.IsLocked(key)
 end
 
 function lib.UpdateLayout(key)
-	for target, overlay in pairs(overlays) do
-		if not key or key == overlay.key then
-			ApplyLayout(overlay)
-		end
+	for _, overlay in lib.IterateOverlays(key) do
+		overlay:ApplyLayout()
 	end
 end
 
@@ -276,17 +350,30 @@ end
 lib.embeds = lib.embeds or {}
 local embeds = lib.embeds
 
+local embeddedMethods = {
+	RegisterMovable = "RegisterMovable",
+	UpdateMovaleLayout = "UpdateLayout",
+	LockMovables = "Lock",
+	UnlockMovables = "Unlock",
+	AreMovablesLocked = "IsLocked",
+	IterateMovableOverlays = "IterateOverlays",
+}
+
 function lib.Embed(target)
 	embeds[target] = true
-	target.RegisterMovable = lib.RegisterMovable
-	target.UpdateMovaleLayout = lib.UpdateLayout
-	target.LockMovables = lib.Lock
-	target.UnlockMovables = lib.Unlock
-	target.AreMovablesLocked = lib.IsLocked
+	for k, v in pairs(embeddedMethods) do
+		target[k] = lib[v]
+	end
 end
+
+-- Upgrading embeds and overlays from previous versions
 
 for target in pairs(embeds) do
 	lib.Embed(target)
+end
+
+for target, overlay in pairs(overlays) do
+	overlay:SetScripts()	
 end
 
 -- ConfigMode support
