@@ -27,7 +27,7 @@ end
 local function __SetFrameLayout(frame, scale, pointFrom, refFrame, pointTo, xOffset, yOffset)
 	refFrame = refFrame and _G[refFrame] or frame:GetParent()
 	frame:ClearAllPoints()
-	frame:SetScale(scale)	
+	frame:SetScale(scale)
 	frame:SetPoint(pointFrom, refFrame, pointTo, xOffset, yOffset)
 end
 
@@ -40,7 +40,7 @@ end
 
 local function SetFrameLayout(frame, ...)
 	if frame:IsProtected() and InCombatLockdown() then
-		if not lib.oocFrame then	
+		if not lib.oocFrame then
 			lib.pendingLayouts = {}
 			lib.oocFrame = CreateFrame("Frame")
 			lib.oocFrame:SetScript('OnEvent', ProcessPendingLayouts)
@@ -100,7 +100,7 @@ end
 
 function proto.ChangeScale(overlay, delta)
 	local target = overlay.target
-	local oldScale, from, frame, to, oldX, oldY = target:GetScale(), target:GetPoint()			
+	local oldScale, from, frame, to, oldX, oldY = target:GetScale(), target:GetPoint()
 	local newScale = math.max(math.min(oldScale + 0.1 * delta, 3.0), 0.2)
 	if oldScale ~= newScale then
 		local newX, newY = oldX / newScale * oldScale, oldY / newScale * oldScale
@@ -122,11 +122,11 @@ function proto.EnableOverlay(overlay, inCombat)
 		overlay:StopMoving()
 		overlay:SetBackdropColor(1, 0, 0, 0.4)
 		overlay:EnableMouse(false)
-		overlay:EnableMouseWheel(false)				
-	else	
+		overlay:EnableMouseWheel(false)
+	else
 		overlay:SetBackdropColor(0, 1, 0, 1)
 		overlay:EnableMouse(true)
-		overlay:EnableMouseWheel(true)				
+		overlay:EnableMouseWheel(true)
 	end
 end
 
@@ -141,16 +141,16 @@ end
 -- Overlay event handlers
 
 function proto.PLAYER_REGEN_ENABLED(overlay)
-	overlay:EnableOverlay(false)			
+	overlay:EnableOverlay(false)
 	if overlay.dirty then
 		overlay:ApplyLayout()
 	end
 end
-	
+
 function proto.PLAYER_REGEN_DISABLED(overlay)
 	overlay:EnableOverlay(true)
 end
-	
+
 function proto.PLAYER_LOGOUT(overlay)
 	local db, defaults = overlay.db, overlay.defaults
 	for k, v in pairs(defaults) do
@@ -171,7 +171,7 @@ function proto.OnEnter(overlay)
 	GameTooltip:AddLine("Hold Alt and right click to reset to defaults.", 1, 1, 1)
 	GameTooltip:Show()
 end
-	
+
 function proto.OnLeave(overlay)
 	if GameTooltip:GetOwner() == overlay then
 		GameTooltip:Hide()
@@ -182,15 +182,15 @@ function proto.OnShow(overlay)
 	if overlay.protected then
 		overlay:RegisterEvent("PLAYER_REGEN_DISABLED")
 		overlay:RegisterEvent("PLAYER_REGEN_ENABLED")
-	end	
+	end
 	overlay:EnableOverlay(InCombatLockdown())
 end
-	
+
 function proto.OnHide(overlay)
 	if overlay.protected then
 		overlay:UnregisterEvent("PLAYER_REGEN_DISABLED")
 		overlay:UnregisterEvent("PLAYER_REGEN_ENABLED")
-	end	
+	end
 end
 
 function proto.OnEvent(overlay, event, ...)
@@ -223,13 +223,13 @@ local overlays = lib.overlays
 local overlaysToBe = lib.overlaysToBe
 
 local overlayBackdrop = {
-	bgFile = [[Interface\Tooltips\UI-Tooltip-Background]], tile = true, tileSize = 16 
+	bgFile = [[Interface\Tooltips\UI-Tooltip-Background]], tile = true, tileSize = 16
 }
 
 function lib.RegisterMovable(key, target, db, label, anchor)
 	if overlaysToBe[target] or overlays[target] then return end
 
-	local protected = target:IsProtected() 
+	local protected = target:IsProtected()
 	local scale, pointFrom, refFrame, pointTo, xOffset, yOffset = GetFrameLayout(target)
 	label = label or target:GetName()
 	if db then
@@ -245,15 +245,15 @@ function lib.RegisterMovable(key, target, db, label, anchor)
 	else
 		db = {}
 	end
-	
+
 	overlaysToBe[target] = function(testKey)
 		if (testKey and testKey ~= key) then return end
 		local overlay = setmetatable(CreateFrame("Frame", nil, UIParent), lib.meta)
 		overlaysToBe[target] = nil
 		overlays[target] = overlay
-		
+
 		overlay:SetBackdrop(overlayBackdrop)
-		overlay:SetBackdropBorderColor(0,0,0,0)	
+		overlay:SetBackdropBorderColor(0,0,0,0)
 		overlay:SetAllPoints(anchor or target)
 		overlay:RegisterEvent("PLAYER_LOGOUT")
 		overlay:SetScripts()
@@ -266,21 +266,21 @@ function lib.RegisterMovable(key, target, db, label, anchor)
 			text:SetJustifyV("MIDDLE")
 			text:SetText(label)
 		end
-	
+
 		overlay.label = label
 		overlay.target = target
 		overlay.db = db
 		overlay.key = key
 		overlay.protected = protected
 		overlay.defaults = {
-			scale = scale, 
-			pointFrom = pointFrom, 
+			scale = scale,
+			pointFrom = pointFrom,
 			refFrame = refFrame,
 			pointTo = pointTo,
-			xOffset = xOffset, 
+			xOffset = xOffset,
 			yOffset = yOffset
 		}
-	
+
 		for k, v in pairs(overlay.defaults) do
 			if db[k] == nil then
 				db[k] = v
@@ -289,10 +289,10 @@ function lib.RegisterMovable(key, target, db, label, anchor)
 
 		overlay:ApplyLayout()
 	end
-	
+
 end
 
-lib.__iterators = lib.__iterators or { [false] = next } 
+lib.__iterators = lib.__iterators or { [false] = next }
 
 setmetatable(lib.__iterators, {
 	__index = function(iterators, key)
@@ -373,7 +373,7 @@ for target in pairs(embeds) do
 end
 
 for target, overlay in pairs(overlays) do
-	overlay:SetScripts()	
+	overlay:SetScripts()
 end
 
 -- ConfigMode support
