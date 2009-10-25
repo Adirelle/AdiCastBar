@@ -36,16 +36,11 @@ do
 		return (tex.SetStatusBarTexture or tex.SetTexture)(tex, BAR_TEXTURE)
 	end
 			
-	local lsm = LibStub('LibSharedMedia-3.0', false)
+	local lsm = LibStub('LibSharedMedia-3.0', true)
 	if lsm then
-		local altFont = lsm:Fetch("font", LSM_FONT, true)
-		if altFont then
-			FONT_PATH, FONT_SIZE, FONT_FLAGS = altFont, 12, ""
-		end
-	
 		BAR_TEXTURE = lsm:Fetch("statusbar", LSM_STATUSBAR, true) or BAR_TEXTURE
 		
-		local function LibSharedMedia_SetGlobal(tex, media, value)
+		local function LibSharedMedia_SetGlobal(tex, event, media, value)
 			if media == "statusbar" then
 				BAR_TEXTURE = lsm:Fetch("statusbar", value)
 				UpdateTexture(tex)
@@ -54,8 +49,7 @@ do
 
 		function RegisterTexture(tex)
 			UpdateTexture(tex)
-			tex.LibSharedMedia_SetGlobal = LibSharedMedia_SetGlobal
-			lsm.RegisterCallback(tex, 'LibSharedMedia_SetGlobal')
+			lsm.RegisterCallback(tex, 'LibSharedMedia_SetGlobal', LibSharedMedia_SetGlobal)
 		end	
 	else
 		RegisterTexture = UpdateTexture
@@ -163,8 +157,7 @@ local function AddonLoaded(self, _, name)
 	local db = _G.AdiCastBarDB
 	db.player = db.player or {}
 	db.target = db.target or {}
-	print(db, db.player, db.target)
-	
+
 	self:RegisterMovable(player, db.player, "Player casting bar")
 	self:RegisterMovable(target, db.target, "Target casting bar")
 end
