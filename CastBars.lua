@@ -27,15 +27,16 @@ local function FadingOut(self)
 end
 
 local strmatch = string.match
-local function FadeOut(self, event, unit)
-	if (unit and unit ~= self.unit) or not self:IsShown() or self.fadingOut then return end
+local function FadeOut(self, event, unit, spell, _, castId)
+	if (unit and unit ~= self.unit) or (castId and castId ~= self.castId) or not self:IsShown() or self.fadingOut then return end
 	self.Bar.Spark:Hide()
-	if strmatch(event, 'INTERRUPTED') then
+	if strmatch(event, 'INTERRUPTED') or strmatch(event, 'FAILED') then
 		self.Bar:SetStatusBarColor(unpack(COLORS.INTERRUPTED))
 	else
 		self.Bar:SetValue(self.reversed and 0 or (self.endTime - self.startTime))
 	end
 	self.endTime = GetTime()
+	self.castId = nil
 	self.fadingOut = true
 	self:SetScript('OnUpdate', FadingOut)	
 end 
@@ -52,7 +53,7 @@ local function TimerUpdate(self)
 	end
 end
 
-local function UpdateDisplay(self, delayed, reversed, color, name, text, texture, startTime, endTime, notInterruptible)
+local function UpdateDisplay(self, delayed, reversed, color, name, text, texture, startTime, endTime, notInterruptible, castId)
 	local latency = self.Latency
 	if latency then
 		local delay = self.latency
@@ -77,6 +78,7 @@ local function UpdateDisplay(self, delayed, reversed, color, name, text, texture
 	end
 	self.endTime = endTime
 	self.reversed = reversed
+	self.castId = castId
 	
 	self.Bar:SetStatusBarColor(unpack(color))
 	self.Bar:SetMinMaxValues(0, endTime-startTime)
@@ -112,39 +114,51 @@ local function UpdateDisplay(self, delayed, reversed, color, name, text, texture
 	return true
 end
 
-local function Update(self, event, unit)
+local function Update(self, event, unit, spell, _, eventCastId)
 	if unit and unit ~= self.unit then return end
+	if self.castId and eventCastId and self.castId ~= eventCastId then return print('ignoring', event, 'because cast ids mismatch', self.castId, eventCastId) end
 	local delayed = (event == "UNIT_SPELLCAST_CHANNEL_UPDATE" or event == "UNIT_SPELLCAST_DELAYED")
 	local color, reversed = COLORS.CAST, false
-	local name, _, text, texture, startTime, endTime, _, _, notInterruptible = UnitCastingInfo(self.unit)
-	if not startTime then
-		name, _, text, texture, startTime, endTime, _, _, notInterruptible = UnitChannelInfo(self.unit)
+	local name, _, text, texture, startTime, endTime, _, castId, notInterruptible = UnitCastingInfo(self.unit)
+	if not startTime or (self.castId and castId ~= self.castId) then
+		name, _, text, texture, startTime, endTime, _, infoCastId, notInterruptible = UnitChannelInfo(self.unit)
 		color, reversed = COLORS.CHANNEL, true
 	end
-	if startTime then
-		UpdateDisplay(self, delayed, reversed, color, name, text, texture, startTime/1000, endTime/1000, notInterruptible)
+	if startTime and not (self.castId and castId ~= self.castId) then
+		UpdateDisplay(self, delayed, reversed, color, name, text, texture, startTime/1000, endTime/1000, notInterruptible, castId)
 	elseif self:IsShown() then
 		if strmatch(event, '^UNIT_SPELLCAST') then
-			FadeOut(self, event, unit)
+			FadeOut(self, event, unit, spell, _, eventCastId)
 		else
 			self:Hide()
 		end
 	end
 end 
 
-local function LatencyStart(self, event, unit)
+local function LatencyStart(self, event, unit, spell)
 	if unit and unit ~= self.unit then return end
-	self.latencyStart = GetTime()
-	self.latency = nil
-	self.Latency:Hide()
+	if not self.lantecySpell then
+		self.latencySpell = spell
+		self.latencyStart = GetTime()
+		self.latency = nil
+	end
 end
 
 local function LatencyEnd(self, event, unit, spell)
 	if unit and unit ~= self.unit then return end
-	if self.latencyStart then
+	if self.latencyStart and self.latencySpell == spell then
 		self.latency = GetTime() - self.latencyStart
-		self.latencyStart = nil
 	end
+	self.latencyStart = nil
+	self.latencySpell = nil
+end
+
+local function noop() end
+local function DisableBlizzardFrame(frame)
+	frame.RegisterEvent = noop
+	frame.Show = noop
+	frame:UnregisterAllEvents()
+	frame:Hide()
 end
 
 local lae = LibStub('LibAdiEvent-1.0')
@@ -170,18 +184,29 @@ function EnableCastBar(self)
 	self:RegisterEvent("UNIT_SPELLCAST_STOP", FadeOut)
 	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_STOP", FadeOut)
 	
+	self:RegisterEvent("UNIT_SPELLCAST_FAILED", FadeOut)
+	self:RegisterEvent("UNIT_SPELLCAST_FAILED_QUIETLY", FadeOut)
 	self:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED", FadeOut)
 	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_INTERRUPTED", FadeOut)
 
 	if self.unit == "player" then
-		CastingBarFrame.RegisterEvent = nothing
-		CastingBarFrame:UnregisterAllEvents()
-		CastingBarFrame.Show = CastingBarFrame.Hide
-		CastingBarFrame:Hide()
+		DisableBlizzardFrame(CastingBarFrame)
+		
 	elseif self.unit == "target" then
+		DisableBlizzardFrame(TargetFrameSpellBar)
 		self:RegisterEvent("PLAYER_TARGET_CHANGED", Update)
+		
 	elseif self.unit == "focus" then
+		DisableBlizzardFrame(FocusFrameSpellBar)
 		self:RegisterEvent("PLAYER_FOCUS_CHANGED", Update)
+		
+	elseif self.unit == "pet" then
+		DisableBlizzardFrame(PetCastingBarFrame)
+		self:RegisterEvent("UNIT_PET", function(self, event, unit) 
+			if unit == "player" then 
+				return Update(self, event, "pet") 
+			end 
+		end)
 	end
 end
 
