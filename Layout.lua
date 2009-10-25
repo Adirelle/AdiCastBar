@@ -164,3 +164,13 @@ end
 
 f:RegisterEvent('ADDON_LOADED', AddonLoaded)
 
+_G.SLASH_ADICASTBAR1 = "/adicastbar"
+_G.SLASH_ADICASTBAR2 = "/acb"
+SlashCmdList.ADICASTBAR = function()
+	if f:AreMovablesLocked() then
+		f:UnlockMovables()
+	else
+		f:LockMovables()
+	end
+end
+
