@@ -252,6 +252,7 @@ function lib.RegisterMovable(key, target, db, label, anchor)
 		overlaysToBe[target] = nil
 		overlays[target] = overlay
 
+		overlay:SetFrameStrata("HIGH")
 		overlay:SetBackdrop(overlayBackdrop)
 		overlay:SetBackdropBorderColor(0,0,0,0)
 		overlay:SetAllPoints(anchor or target)
@@ -292,7 +293,7 @@ function lib.RegisterMovable(key, target, db, label, anchor)
 
 end
 
-lib.__iterators = lib.__iterators or { [false] = next }
+lib.__iterators = lib.__iterators or {}
 
 setmetatable(lib.__iterators, {
 	__index = function(iterators, key)
@@ -312,26 +313,30 @@ setmetatable(lib.__iterators, {
 })
 
 function lib.IterateOverlays(key)
-	return lib.__iterators[key or false], overlays
+	if key then
+		return lib.__iterators[key], overlays
+	else
+		return next, overlays
+	end
 end
 
 function lib.Lock(key)
-	for _, overlay in lib.IterateOverlays(key) do
+	for target, overlay in lib.IterateOverlays(key) do
 		overlay:Hide()
 	end
 end
 
 function lib.Unlock(key)
-	for _, spawnFunc in pairs(overlaysToBe) do
+	for target, spawnFunc in pairs(overlaysToBe) do
 		spawnFunc(key)
 	end
-	for _, overlay in lib.IterateOverlays(key) do
+	for target, overlay in lib.IterateOverlays(key) do
 		overlay:Show()
 	end
 end
 
 function lib.IsLocked(key)
-	for _, overlay in lib.IterateOverlays(key) do
+	for target, overlay in lib.IterateOverlays(key) do
 		if overlay:IsShown() then
 			return false
 		end
@@ -340,7 +345,7 @@ function lib.IsLocked(key)
 end
 
 function lib.UpdateLayout(key)
-	for _, overlay in lib.IterateOverlays(key) do
+	for target, overlay in lib.IterateOverlays(key) do
 		overlay:ApplyLayout()
 	end
 end
