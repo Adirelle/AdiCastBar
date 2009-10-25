@@ -30,10 +30,12 @@ local strmatch = string.match
 local function FadeOut(self, event, unit)
 	if (unit and unit ~= self.unit) or not self:IsShown() or self.fadingOut then return end
 	self.Bar.Spark:Hide()
-	self.endTime = GetTime()
 	if strmatch(event, 'INTERRUPTED') then
 		self.Bar:SetStatusBarColor(unpack(COLORS.INTERRUPTED))
+	else
+		self.Bar:SetValue(self.reversed and 0 or (self.endTime - self.startTime))
 	end
+	self.endTime = GetTime()
 	self.fadingOut = true
 	self:SetScript('OnUpdate', FadingOut)	
 end 
@@ -165,8 +167,8 @@ function EnableCastBar(self)
 	self:RegisterEvent('UNIT_SPELLCAST_INTERRUPTIBLE', Update)
 	self:RegisterEvent('UNIT_SPELLCAST_NOT_INTERRUPTIBLE', Update)
 	
-	self:RegisterEvent("UNIT_SPELLCAST_STOP", Update)
-	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_STOP", Update)
+	self:RegisterEvent("UNIT_SPELLCAST_STOP", FadeOut)
+	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_STOP", FadeOut)
 	
 	self:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED", FadeOut)
 	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_INTERRUPTED", FadeOut)
