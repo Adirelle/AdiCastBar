@@ -9,8 +9,8 @@ setfenv(1, AdiCastBar)
 
 local BAR_BACKDROP = {
 	bgFile = [[Interface\Tooltips\UI-Tooltip-Background]],
-	 tile = true,
-	 tileSize = 16,
+	tile = true,
+	tileSize = 16,
 }
 
 local BORDER_SIZE = 2
@@ -136,12 +136,33 @@ local function SpawnCastBar(unit, width, height, withLatency)
 	bar.Spark = spark
 	
 	EnableCastBar(self)
-	self:Hide()
+	return self
+end
+
+local function SpawnGCDBar(width, height)
+	local self = CreateFrame("Frame", "AdiCastBar_GCD", UIParent)
+	self:SetWidth(width)
+	self:SetHeight(height)
+	
+	self:SetBackdrop(BAR_BACKDROP)
+	self:SetBackdropColor(0,0,0,1)
+	
+	local spark = self:CreateTexture(nil, "OVERLAY")
+	spark:SetTexture([[Interface\CastingBar\UI-CastingBar-Spark]])
+	spark:SetBlendMode('ADD')
+	spark:SetWidth(20)
+	spark:SetHeight(height*2.2)	
+	self.Spark = spark
+	
+	EnableGCD(self)
 	return self
 end
 
 local player = SpawnCastBar('player', 250, 20, true)
 player:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 180)
+
+local gcd = SpawnGCDBar(250, 4)
+gcd:SetPoint("TOP", player, "BOTTOM", 0, -4)
 
 local target = SpawnCastBar('target', 330, 32)
 target:SetPoint("TOP", UIParent, "TOP", 0, -220)
@@ -158,9 +179,11 @@ local function AddonLoaded(self, _, name)
 	local db = _G.AdiCastBarDB
 	db.player = db.player or {}
 	db.target = db.target or {}
+	db.gcd = db.gcd or {}
 
 	self:RegisterMovable(player, db.player, "Player casting bar")
 	self:RegisterMovable(target, db.target, "Target casting bar")
+	self:RegisterMovable(gcd, db.gcd, "Global cooldown")
 end
 
 f:RegisterEvent('ADDON_LOADED', AddonLoaded)

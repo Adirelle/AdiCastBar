@@ -6,4 +6,3 @@ All rights reserved.
 
 AdiCastBar = setmetatable({_G = _G}, {__index = _G})
 setfenv(1, AdiCastBar)
-

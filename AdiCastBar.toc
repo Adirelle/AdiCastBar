@@ -17,5 +17,6 @@ LibMovable-1.0.lua
 
 AdiCastBar.lua
 CastBars.lua
+GCD.lua
 Layout.lua
 
