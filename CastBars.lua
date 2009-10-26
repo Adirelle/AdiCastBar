@@ -8,9 +8,9 @@ if not AdiCastBar then return end
 setfenv(1, AdiCastBar)
 
 local COLORS = {
-	CAST = { 0, 1, 0 },
-	CHANNEL = { 0.3, 0.5, 1 },
-	INTERRUPTED = { 1, 0, 0 },
+	CAST = { 1.0, 0.7, 0.0 },
+	CHANNEL = { 0.0, 1.0, 0.0 },
+	INTERRUPTED = { 1.0, 0.0, 0.0 },
 }
 
 local GetTime = GetTime
@@ -28,7 +28,8 @@ end
 
 local strmatch = string.match
 local function FadeOut(self, event, unit, spell, _, castId)
-	if (unit and unit ~= self.unit) or (castId and castId ~= self.castId) or not self:IsShown() or self.fadingOut then return end
+	if (unit and unit ~= self.unit) or not self:IsShown() then return end
+	if castId and castId ~= self.castId then return end
 	self.Bar.Spark:Hide()
 	if strmatch(event, 'INTERRUPTED') or strmatch(event, 'FAILED') then
 		self.Bar:SetStatusBarColor(unpack(COLORS.INTERRUPTED))
@@ -37,7 +38,6 @@ local function FadeOut(self, event, unit, spell, _, castId)
 	end
 	self.endTime = GetTime()
 	self.castId = nil
-	self.fadingOut = true
 	self:SetScript('OnUpdate', FadingOut)	
 end 
 
@@ -49,7 +49,7 @@ local function TimerUpdate(self)
 		self.Bar:SetValue(now - self.startTime)
 	end
 	if now > self.endTime then
-		FadeOut(self, "TimerUpdate", self.unit)
+		FadeOut(self, "TimerUpdate", self.unit, self.castId)
 	end
 end
 
@@ -84,7 +84,7 @@ local function UpdateDisplay(self, delayed, reversed, color, name, text, texture
 	self.Bar:SetMinMaxValues(0, endTime-startTime)
 	self.Bar.Spark:Show()
 	
-	text = text or name
+	text = name or text
 	if text then
 		self.Text:SetText(text)
 		self.Text:Show()
@@ -100,29 +100,27 @@ local function UpdateDisplay(self, delayed, reversed, color, name, text, texture
 	end
 
 	if notInterruptible then
-		self.Border:SetBackdropBorderColor(0.7, 0.7, 0.7, 1)
+		self.Border:SetBackdropBorderColor(0.5, 0.5, 0.5, 1)
 	else
 		self.Border:SetBackdropBorderColor(0, 0, 0, 1)
 	end
 
 	self:SetAlpha(1.0)
 	self:SetScript('OnUpdate', TimerUpdate)
-	self.fadingOut = nil
-
 	self:Show()
-	
-	return true
 end
 
 local function Update(self, event, unit, spell, _, eventCastId)
 	if unit and unit ~= self.unit then return end
-	if self.castId and eventCastId and self.castId ~= eventCastId then return print('ignoring', event, 'because cast ids mismatch', self.castId, eventCastId) end
+	if self.castId and eventCastId and self.castId ~= eventCastId then return end
 	local delayed = (event == "UNIT_SPELLCAST_CHANNEL_UPDATE" or event == "UNIT_SPELLCAST_DELAYED")
 	local color, reversed = COLORS.CAST, false
 	local name, _, text, texture, startTime, endTime, _, castId, notInterruptible = UnitCastingInfo(self.unit)
 	if not startTime or (self.castId and castId ~= self.castId) then
-		name, _, text, texture, startTime, endTime, _, infoCastId, notInterruptible = UnitChannelInfo(self.unit)
-		color, reversed = COLORS.CHANNEL, true
+		name, _, text, texture, startTime, endTime, _, notInterruptible = UnitChannelInfo(self.unit)
+		if startTime then
+			castId, color, reversed = 0, COLORS.CHANNEL, true
+		end
 	end
 	if startTime and not (self.castId and castId ~= self.castId) then
 		UpdateDisplay(self, delayed, reversed, color, name, text, texture, startTime/1000, endTime/1000, notInterruptible, castId)
@@ -133,7 +131,7 @@ local function Update(self, event, unit, spell, _, eventCastId)
 			self:Hide()
 		end
 	end
-end 
+end
 
 local function LatencyStart(self, event, unit, spell)
 	if (unit and unit ~= self.unit) or not spell then return end
