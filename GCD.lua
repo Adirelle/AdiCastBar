@@ -53,7 +53,6 @@ end
 local function Update(self, event)
 	local start, duration, enable = GetSpellCooldown(spellName)
 	if enable == 1 and duration > 0 and duration <= 1.5 then
-		print(event, duration)
 		self.startTime = start
 		self.duration = duration
 		self.endTime = start + duration
