@@ -52,7 +52,7 @@ end
 
 local function Update(self, event)
 	local start, duration, enable = GetSpellCooldown(spellName)
-	if enable == 1 and duration > 0 and duration <= 1.5 then
+	if enable == 1 and start and duration > 0 and duration <= 1.5 then
 		self.startTime = start
 		self.duration = duration
 		self.endTime = start + duration
@@ -70,6 +70,7 @@ function EnableGCD(self)
 	self:RegisterEvent('PLAYER_ENTERING_WORLD', Update)
 	self:RegisterEvent('SPELL_UPDATE_COOLDOWN', Update)
 	self:SetScript('OnUpdate', UpdateTimer)
+	self:Hide()
 	
 	Update(self, "EnableGCD")
 end
