@@ -47,7 +47,7 @@ local function UpdateTimer(self)
 	if now >= self.endTime then
 		self:Hide()
 	end
-	self.Spark:SetPoint("LEFT", self, "LEFT", (now - self.startTime) * self:GetWidth() / self.duration, 0)
+	self.Spark:SetPoint("CENTER", self, "LEFT", (now - self.startTime) * self:GetWidth() / self.duration, 0)
 end
 
 local function Update(self, event)
