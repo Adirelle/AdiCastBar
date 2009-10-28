@@ -4,11 +4,38 @@ LibMovable-1.0 - Movable frame library
 All rights reserved.
 --]]
 
-local MAJOR, MINOR = 'LibMovable-1.0', 2
+local MAJOR, MINOR = 'LibMovable-1.0', 4
 local lib, oldMinor = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 oldMinor = oldMinor or 0
 
+-- Localization
+L_MENU_CENTER_X = "Center horizontally"
+L_MENU_CENTER_Y = "Center vertically"
+L_MENU_RESET = "Reset to default position"
+L_MENU_HIDE_THIS = "Hide this moving handle"
+L_MENU_HIDE_ALL = "Hide all moving handles"
+L_TIP_CONTROLS = "Controls:"
+L_TIP_DRAG ="Drag: move."
+L_TIP_SHIFT_DRAG = "Shift+drag: move vertically."
+L_TIP_CTRL_DRAG = "Control+drag: move horizontally."
+L_TIP_MOUSEWHEEL = "Mousewheel: change scale."
+L_TIP_RIGHT_CLICK = "Right-click: open menu."
+
+if GetLocale() == "frFR" then
+	L_MENU_CENTER_X = "Centrer horizontalement"
+	L_MENU_CENTER_Y = "Centrer verticalement"
+	L_MENU_RESET = "Réinitialiser la position"
+	L_MENU_HIDE_THIS = "Cacher"
+	L_MENU_HIDE_ALL = "Tout cacher"
+	L_TIP_CONTROLS = "Contrôles :"
+	L_TIP_DRAG ="Tirer : déplacer."
+	L_TIP_SHIFT_DRAG = "Tirer en pressant Maj : déplacer verticalement."
+	L_TIP_CTRL_DRAG = "Tirer en pressant Ctrl : déplacer horizontalement."
+	L_TIP_MOUSEWHEEL = "Molette de la souris : changer l'échelle d'affichage."
+	L_TIP_RIGHT_CLICK = "Clic droit : ouvrir le menu."
+end
+		
 -- Frame layout helpers
 
 local function GetFrameLayout(frame)
@@ -73,6 +100,16 @@ lib.meta.__index = lib.proto
 local proto = lib.proto
 wipe(proto)
 
+function proto.InCombatLockdown(overlay)
+	return overlay.protected and InCombatLockdown()
+end
+
+function proto.UpgradeOverlay(overlay)
+	if (overlay.version or 0) >= MINOR then return end
+	overlay:SetScripts()
+	overlay.version = MINOR
+end
+
 function proto.UpdateDatabase(overlay)
 	local db, target = overlay.db, overlay.target
 	db.scale, db.pointFrom, db.refFrame, db.pointTo, db.xOffset, db.yOffset = GetFrameLayout(target)
@@ -83,15 +120,33 @@ function proto.ApplyLayout(overlay)
 	overlay.dirty = not SetFrameLayout(target, db.scale, db.pointFrom, db.refFrame, db.pointTo, db.xOffset, db.yOffset)
 end
 
-function proto.StartMoving(overlay)
-	if overlay.isMoving or (overlay.protected and InCombatLockdown()) then return end
+function proto.MovingUpdater(overlay)
+	local lockedX, lockedY = overlay.lockedX, overlay.lockedY
+	if lockedX or lockedY then
+		local from, ref, to, x, y = overlay.target:GetPoint()
+		overlay.target:SetPoint(from, ref, to, lockedX or x, lockedY or y)
+	end
+	overlay.Text:SetFormattedText("%s (X:%d, Y:%d)", overlay.label, overlay.target:GetCenter())
+end
+
+function proto.StartMoving(overlay, lock)
+	if overlay.isMoving or overlay:InCombatLockdown() then return end
 	overlay.target:SetMovable(true)
 	overlay.target:StartMoving()
+	if lock == "X" then
+		overlay.lockedX = select(4, overlay.target:GetPoint())
+	elseif lock == "Y" then
+		overlay.lockedY = select(5, overlay.target:GetPoint())
+	end
+	overlay:SetScript('OnUpdate', overlay.MovingUpdater)
 	overlay.isMoving = true
 end
 
 function proto.StopMoving(overlay)
-	if not overlay.isMoving or (overlay.protected and InCombatLockdown()) then return end
+	if not overlay.isMoving or overlay:InCombatLockdown() then return end
+	overlay.lockedX, overlay.lockedY = nil, nil
+	overlay.Text:SetText(overlay.label)
+	overlay:SetScript('OnUpdate', nil)
 	overlay.target:StopMovingOrSizing()
 	overlay.target:SetMovable(false)
 	overlay.isMoving = nil
@@ -99,6 +154,7 @@ function proto.StopMoving(overlay)
 end
 
 function proto.ChangeScale(overlay, delta)
+	if overlay:InCombatLockdown() then return end
 	local target = overlay.target
 	local oldScale, from, frame, to, oldX, oldY = target:GetScale(), target:GetPoint()
 	local newScale = math.max(math.min(oldScale + 0.1 * delta, 3.0), 0.2)
@@ -108,6 +164,21 @@ function proto.ChangeScale(overlay, delta)
 		target:SetPoint(from, frame, to, newX, newY)
 		overlay:UpdateDatabase()
 	end
+end
+
+function proto.MoveToCenter(overlay, centerX, centerY)
+	if overlay:InCombatLockdown() then return end
+	local target = overlay.target
+	local scaleFactor = target:GetEffectiveScale() / UIParent:GetEffectiveScale()
+	local cx, cy = target:GetCenter()
+	local from, ref, to, x, y = target:GetPoint()
+	if centerX then
+		x = x + (UIParent:GetWidth() / 2 - cx) * scaleFactor 
+	end
+	if centerY then
+		y = y + (UIParent:GetHeight() / 2 - cy) * scaleFactor
+	end
+	target:SetPoint(from, ref, to, x, y)
 end
 
 function proto.ResetLayout(overlay)
@@ -138,6 +209,26 @@ function proto.SetScripts(overlay)
 	end
 end
 
+-- Menu definition and method
+
+local menuOverlay
+local menuFrame = _G.DropDownList1
+local menu = {
+	{ isTitle = true },
+	{ text = L_MENU_CENTER_X, func = function() menuOverlay:MoveToCenter(true, false) end },
+	{ text = L_MENU_CENTER_Y, func = function() menuOverlay:MoveToCenter(false, true) end },
+	{	text = L_MENU_RESET, func = function() menuOverlay:ResetLayout() end },
+	{ text = L_MENU_HIDE_THIS, func = function() menuOverlay:Hide() end },
+	{ text = L_MENU_HIDE_ALL, func = function() lib.Lock() end },
+	{ text = CANCEL }
+}
+
+function proto.OpenMenu(overlay)
+	menuOverlay = overlay
+	menu[1].text = menuOverlay.label
+	EasyMenu(menu, menuFrame, "cursor", 0, 0)
+end
+
 -- Overlay event handlers
 
 function proto.PLAYER_REGEN_ENABLED(overlay)
@@ -166,9 +257,12 @@ function proto.OnEnter(overlay)
 	GameTooltip_SetDefaultAnchor(GameTooltip, overlay)
 	GameTooltip:ClearLines()
 	GameTooltip:AddLine(overlay.label)
-	GameTooltip:AddLine("Drag this using the left mouse button.", 1, 1, 1)
-	GameTooltip:AddLine("Use the mousewheel to change the size.", 1, 1, 1)
-	GameTooltip:AddLine("Hold Alt and right click to reset to defaults.", 1, 1, 1)
+	GameTooltip:AddLine(L_TIP_CONTROLS, 1, 1, 1)
+	GameTooltip:AddLine(L_TIP_DRAG, 1, 1, 1)
+	GameTooltip:AddLine(L_TIP_SHIFT_DRAG, 1, 1, 1)
+	GameTooltip:AddLine(L_TIP_CTRL_DRAG, 1, 1, 1)
+	GameTooltip:AddLine(L_TIP_MOUSEWHEEL, 1, 1, 1)
+	GameTooltip:AddLine(L_TIP_RIGHT_CLICK, 1, 1, 1)
 	GameTooltip:Show()
 end
 
@@ -187,6 +281,7 @@ function proto.OnShow(overlay)
 end
 
 function proto.OnHide(overlay)
+	overlay:StopMoving()
 	if overlay.protected then
 		overlay:UnregisterEvent("PLAYER_REGEN_DISABLED")
 		overlay:UnregisterEvent("PLAYER_REGEN_ENABLED")
@@ -199,15 +294,16 @@ end
 
 function proto.OnMouseDown(overlay, button)
 	if button == "LeftButton" then
-		overlay:StartMoving()
+		overlay:StartMoving((IsShiftKeyDown() and "X") or (IsControlKeyDown() and "Y"))
 	end
 end
 
 function proto.OnMouseUp(overlay, button)
 	if button == "LeftButton" then
 		overlay:StopMoving()
-	elseif button == "RightButton" and IsAltKeyDown() then
-		overlay:ResetLayout()
+	elseif button == "RightButton" then
+		overlay:StopMoving()
+		overlay:OpenMenu()
 	end
 end
 
@@ -246,34 +342,15 @@ function lib.RegisterMovable(key, target, db, label, anchor)
 		db = {}
 	end
 
-	overlaysToBe[target] = function(testKey)
-		if (testKey and testKey ~= key) then return end
-		local overlay = setmetatable(CreateFrame("Frame", nil, UIParent), lib.meta)
-		overlaysToBe[target] = nil
-		overlays[target] = overlay
-
-		overlay:SetFrameStrata("HIGH")
-		overlay:SetBackdrop(overlayBackdrop)
-		overlay:SetBackdropBorderColor(0,0,0,0)
-		overlay:SetAllPoints(anchor or target)
-		overlay:RegisterEvent("PLAYER_LOGOUT")
-		overlay:SetScripts()
-		overlay:Hide()
-
-		if label then
-			local text = overlay:CreateFontString(nil, "ARTWORK", "GameFontWhite")
-			text:SetAllPoints(overlay)
-			text:SetJustifyH("CENTER")
-			text:SetJustifyV("MIDDLE")
-			text:SetText(label)
-		end
-
-		overlay.label = label
-		overlay.target = target
-		overlay.db = db
-		overlay.key = key
-		overlay.protected = protected
-		overlay.defaults = {
+	overlaysToBe[target] = {
+		version = MINOR,
+		label = label,
+		anchor = anchor or target,
+		target = target,
+		db = db,
+		key = key,
+		protected = protected,
+		defaults = {
 			scale = scale,
 			pointFrom = pointFrom,
 			refFrame = refFrame,
@@ -281,17 +358,49 @@ function lib.RegisterMovable(key, target, db, label, anchor)
 			xOffset = xOffset,
 			yOffset = yOffset
 		}
-
-		for k, v in pairs(overlay.defaults) do
-			if db[k] == nil then
-				db[k] = v
-			end
-		end
-
-		overlay:ApplyLayout()
-	end
-
+	}
 end
+
+function lib.SpawnOverlay(data)
+	local target = data.target
+
+	local overlay = setmetatable(CreateFrame("Frame", nil, UIParent), lib.meta)	
+	for k, v in pairs(data) do
+		overlay[k] = v
+	end	
+	overlaysToBe[target] = nil
+	overlays[target] = overlay
+
+	overlay:SetFrameStrata("DIALOG")
+	overlay:SetBackdrop(overlayBackdrop)
+	overlay:SetBackdropBorderColor(0,0,0,0)
+	overlay:SetAllPoints(overlay.anchor)
+	overlay:RegisterEvent("PLAYER_LOGOUT")
+	overlay:SetScripts()
+	overlay:Hide()
+
+	local text = overlay:CreateFontString(nil, "ARTWORK", "GameFontWhite")
+	text:SetAllPoints(overlay)
+	text:SetJustifyH("CENTER")
+	text:SetJustifyV("MIDDLE")
+	text:SetText(overlay.label)
+	text:SetShadowColor(0,0,0,1)
+	text:SetShadowOffset(1, -1)
+	overlay.Text = text
+
+	for k, v in pairs(overlay.defaults) do
+		if overlay.db[k] == nil then
+			overlay.db[k] = v
+		end
+	end
+	
+	-- Upgrade overlay at spawn time if the data has been created with previous versions
+	if overlay.version < MINOR then
+		overlay:UpgradeOverlay()
+	end
+end
+
+-- Overlay iterator
 
 lib.__iterators = lib.__iterators or {}
 
@@ -320,6 +429,8 @@ function lib.IterateOverlays(key)
 	end
 end
 
+-- (Un)locking related methods
+
 function lib.Lock(key)
 	for target, overlay in lib.IterateOverlays(key) do
 		overlay:Hide()
@@ -327,8 +438,15 @@ function lib.Lock(key)
 end
 
 function lib.Unlock(key)
-	for target, spawnFunc in pairs(overlaysToBe) do
-		spawnFunc(key)
+	for target, data in pairs(overlaysToBe) do
+		if type(data) == "function" then
+			data(key)
+			if overlays[target] then
+				overlays[target]:UpgradeOverlay()
+			end
+		elseif not key or data.key == key then
+			lib.SpawnOverlay(data)
+		end
 	end
 	for target, overlay in lib.IterateOverlays(key) do
 		overlay:Show()
@@ -378,7 +496,7 @@ for target in pairs(embeds) do
 end
 
 for target, overlay in pairs(overlays) do
-	overlay:SetScripts()
+	overlay:UpgradeOverlay()
 end
 
 -- ConfigMode support
