@@ -12,6 +12,7 @@
 # LoadManagers: AddonLoader
 # X-LoadOn-Always: delayed
 
+LibStub.lua
 LibAdiEvent-1.0.lua
 LibMovable-1.0.lua
 
