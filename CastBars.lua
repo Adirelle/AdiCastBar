@@ -26,9 +26,16 @@ local function FadingOut(self)
 	end
 end
 
+local function CheckUnit(self, unit)
+	if not unit or self.unit == unit or (self.unit == "player" and unit == "vehicle") then
+		return self.unit
+	end
+end
+
 local strmatch = string.match
 local function FadeOut(self, event, unit, spell, _, castId)
-	if (unit and unit ~= self.unit) or not self:IsShown() then return end
+	unit = CheckUnit(self, unit)
+	if not unit then return end
 	if castId and castId ~= self.castId then return end
 	self.Bar.Spark:Hide()
 	if strmatch(event, 'INTERRUPTED') or strmatch(event, 'FAILED') then
@@ -111,13 +118,14 @@ local function UpdateDisplay(self, delayed, reversed, color, name, text, texture
 end
 
 local function Update(self, event, unit, spell, _, eventCastId)
-	if unit and unit ~= self.unit then return end
+	unit = CheckUnit(self, unit)
+	if not unit then return end
 	if self.castId and eventCastId and self.castId ~= eventCastId then return end
 	local delayed = (event == "UNIT_SPELLCAST_CHANNEL_UPDATE" or event == "UNIT_SPELLCAST_DELAYED")
 	local color, reversed = COLORS.CAST, false
-	local name, _, text, texture, startTime, endTime, _, castId, notInterruptible = UnitCastingInfo(self.unit)
+	local name, _, text, texture, startTime, endTime, _, castId, notInterruptible = UnitCastingInfo(unit)
 	if not startTime or (self.castId and castId ~= self.castId) then
-		name, _, text, texture, startTime, endTime, _, notInterruptible = UnitChannelInfo(self.unit)
+		name, _, text, texture, startTime, endTime, _, notInterruptible = UnitChannelInfo(sunit)
 		if startTime then
 			castId, color, reversed = 0, COLORS.CHANNEL, true
 		end
@@ -134,13 +142,15 @@ local function Update(self, event, unit, spell, _, eventCastId)
 end
 
 local function LatencyStart(self, event, unit, spell)
-	if (unit and unit ~= self.unit) or not spell then return end
+	unit = CheckUnit(self, unit)
+	if not unit then return end
 	self.latency[spell] = nil
 	self.latencyStart[spell] = GetTime()
 end
 
 local function LatencyEnd(self, event, unit, spell)
-	if (unit and unit ~= self.unit) or not spell then return end
+	unit = CheckUnit(self, unit)
+	if not unit then return end
 	local start = self.latencyStart[spell] 
 	if start then
 		self.latency[spell] = GetTime() - start
