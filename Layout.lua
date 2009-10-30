@@ -167,13 +167,13 @@ gcd:SetPoint("TOP", player, "BOTTOM", 0, -4)
 local target = SpawnCastBar('target', 330, 32)
 target:SetPoint("TOP", UIParent, "TOP", 0, -220)
 
-local f = CreateFrame("Frame")
-LibStub('LibAdiEvent-1.0').Embed(f)
-LibStub('LibMovable-1.0').Embed(f)
+local lmkey = "AdiCastBar"
+local lae = LibStub('LibAdiEvent-1.0')
+local lm = LibStub('LibMovable-1.0')
 
 local function AddonLoaded(self, _, name)
 	if name:lower() ~= "adicastbar" then return end
-	self:UnregisterEvent('ADDON_LOADED', AddonLoaded)
+	lae:UnregisterEvent('ADDON_LOADED', AddonLoaded)
 		
 	_G.AdiCastBarDB = _G.AdiCastBarDB or {}
 	local db = _G.AdiCastBarDB
@@ -181,20 +181,20 @@ local function AddonLoaded(self, _, name)
 	db.target = db.target or {}
 	db.gcd = db.gcd or {}
 
-	self:RegisterMovable(player, db.player, "Player casting bar")
-	self:RegisterMovable(target, db.target, "Target casting bar")
-	self:RegisterMovable(gcd, db.gcd, "Global cooldown")
+	lm.RegisterMovable(lmkey, player, db.player, "Player casting bar")
+	lm.RegisterMovable(lmkey, target, db.target, "Target casting bar")
+	lm.RegisterMovable(lmkey, gcd, db.gcd, "Global cooldown")
 end
 
-f:RegisterEvent('ADDON_LOADED', AddonLoaded)
+lae:RegisterEvent('ADDON_LOADED', AddonLoaded)
 
 _G.SLASH_ADICASTBAR1 = "/adicastbar"
 _G.SLASH_ADICASTBAR2 = "/acb"
 SlashCmdList.ADICASTBAR = function()
-	if f:AreMovablesLocked() then
-		f:UnlockMovables()
+	if lm.IsLocked(lmkey) then
+		lm.Unlock(lmkey)
 	else
-		f:LockMovables()
+		lm.Lock(lmkey)
 	end
 end
 
