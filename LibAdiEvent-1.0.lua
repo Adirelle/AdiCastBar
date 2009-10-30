@@ -4,7 +4,7 @@ LibAdiEvent-1.0 - Event handling library
 All rights reserved.
 --]]
 
-local MAJOR, MINOR = 'LibAdiEvent-1.0', 1
+local MAJOR, MINOR = 'LibAdiEvent-1.0', 2
 local lib, oldMinor = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 oldMinor = oldMinor or 0
@@ -76,6 +76,13 @@ function lib.TriggerEvent(self, event, ...)
 end
 
 function lib.RegisterEvent(self, event, handler)
+	if self == lib then
+		if not lib.frame then
+			lib.frame = CreateFrame("Frame", "LibAdiEvent10Frame")
+			lib.Embed(lib.frame)
+		end
+		self = lib.frame
+	end
 	assert(type(event) == "string", "RegisterEvent(event, handler): event must be a string")
 	handler = handler or event
 	if type(handler) == "string" then
@@ -95,6 +102,10 @@ function lib.RegisterEvent(self, event, handler)
 end
 
 function lib.UnregisterEvent(self, event, handler)
+	if self == lib then
+		self = lib.frame
+		if not self then return end
+	end
 	assert(type(event) == "string", "UnregisterEvent(event, handler): event must be a string")
 	handler = handler or event
 	if type(handler) == "string" then
@@ -166,7 +177,7 @@ local embeds = lib.embeds
 
 function lib.Embed(target)
 	embeds[target] = true
-	handlers[target] = {}
+	handlers[target] = handlers[target] or {}
 	target.__RegisterEvent = target.__RegisterEvent or target.RegisterEvent
 	target.__UnregisterEvent = target.__UnregisterEvent or target.UnregisterEvent
 	target:SetScript('OnEvent', lib.TriggerEvent)
