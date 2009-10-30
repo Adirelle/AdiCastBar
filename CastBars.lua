@@ -26,25 +26,10 @@ local function FadingOut(self)
 	end
 end
 
-local function CheckPlayerUnit(self, unit)
-	if not unit or unit == "player" then
-		return "player"
-	elseif unit == "vehicle" and UnitHasVehicleUI("player") then
-		return "vehicle"
-	end
-end
-
-local function CheckUnit(self, unit)
-	if not unit or unit == self.unit then
-		return self.unit
-	end
-end
-
 local strmatch = string.match
 local function FadeOut(self, event, unit, spell, _, castId)
+	if unit and unit ~= self.unit then return end
 	if castId and castId ~= self.castId then return end
-	unit = self:CheckUnit(unit)
-	if not unit then return end
 	self.Bar.Spark:Hide()
 	if strmatch(event, 'INTERRUPTED') or strmatch(event, 'FAILED') then
 		self.Bar:SetStatusBarColor(unpack(COLORS.INTERRUPTED))
@@ -137,10 +122,9 @@ local function GetCurrentCast(unit, id)
 end
 
 local function Update(self, event, unit, spell, _, eventCastId)
+	if unit and unit ~= self.unit then return end
 	if self.castId and eventCastId and self.castId ~= eventCastId then return end
-	unit = self:CheckUnit(unit)
-	if not unit then return end
-	local kind, name, text, texture, startTime, endTime, castId, notInterruptible = GetCurrentCast(unit, self.castId)
+	local kind, name, text, texture, startTime, endTime, castId, notInterruptible = GetCurrentCast(self.unit, self.castId)
 	if kind then
 		local reversed = kind == "CHANNEL"
 		local delayed = (event == "UNIT_SPELLCAST_CHANNEL_UPDATE" or event == "UNIT_SPELLCAST_DELAYED")
@@ -155,19 +139,27 @@ local function Update(self, event, unit, spell, _, eventCastId)
 end
 
 local function LatencyStart(self, event, unit, spell)
-	unit = self:CheckUnit(unit)
-	if not unit then return end
+	if unit and unit ~= self.unit then return end
 	self.latency[spell] = nil
 	self.latencyStart[spell] = GetTime()
 end
 
 local function LatencyEnd(self, event, unit, spell)
-	unit = self:CheckUnit(unit)
-	if not unit then return end
+	if unit and unit ~= self.unit then return end
 	local start = self.latencyStart[spell] 
 	if start then
 		self.latency[spell] = GetTime() - start
 		self.latencyStart[spell] = nil
+	end
+end
+
+local function UpdateVehicleState(self, event, unit)
+	if unit and unit ~= 'player' then return end
+	local newUnit = UnitHasVehicleUI('player') and 'vehicle' or 'player'
+	if newUnit ~= self.unit then
+		print(self.unit, '=>', newUnit)
+		self.unit = newUnit
+		Update(self, event, newUnit)
 	end
 end
 
@@ -184,15 +176,19 @@ function EnableCastBar(self)
 	local unit = self.unit
 	if not unit then return print('Ignoring castbar, no unit') end
 	lae.Embed(self)
-	
-	self.CheckUnit = CheckUnit
-	
+
 	if self.Latency then
 		self.latency = {}
 		self.latencyStart = {}
 		self:RegisterEvent("UNIT_SPELLCAST_SENT", LatencyStart)
 		self:RegisterEvent("UNIT_SPELLCAST_START", LatencyEnd)
 		self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START", LatencyEnd)
+	end
+	
+	if unit == "player" then			
+		self:RegisterEvent("PLAYER_ENTERING_WORLD", UpdateVehicleState)		
+		self:RegisterEvent("UNIT_ENTERED_VEHICLE", UpdateVehicleState)		
+		self:RegisterEvent("UNIT_EXITED_VEHICLE", UpdateVehicleState)		
 	end
 
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", Update)		
@@ -214,7 +210,6 @@ function EnableCastBar(self)
 
 	if unit == "player" then
 		DisableBlizzardFrame(CastingBarFrame)
-		self.CheckUnit = CheckPlayerUnit
 
 	elseif unit == "target" then
 		DisableBlizzardFrame(TargetFrameSpellBar)
