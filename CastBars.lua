@@ -157,7 +157,6 @@ local function UpdateVehicleState(self, event, unit)
 	if unit and unit ~= 'player' then return end
 	local newUnit = UnitHasVehicleUI('player') and 'vehicle' or 'player'
 	if newUnit ~= self.unit then
-		print(self.unit, '=>', newUnit)
 		self.unit = newUnit
 		Update(self, event, newUnit)
 	end
