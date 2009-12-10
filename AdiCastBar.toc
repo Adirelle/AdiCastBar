@@ -1,4 +1,4 @@
-## Interface: 30200
+## Interface: 30300
 
 ## Title: Diminishing Returns
 ## Notes: Attach diminishing return icons to unit frames.
