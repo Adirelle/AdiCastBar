@@ -1,7 +1,7 @@
 ## Interface: 30300
 
-## Title: Diminishing Returns
-## Notes: Attach diminishing return icons to unit frames.
+## Title: AdiCastBar
+## Notes: Light-weight, enhanced casting bar.
 ## Author: Adirelle
 ## Version: @project-version@
 ## X-Date: @project-date-iso@
