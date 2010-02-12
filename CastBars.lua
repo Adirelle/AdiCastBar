@@ -17,9 +17,9 @@ local GetTime = GetTime
 
 local function FadingOut(self)
 	local now = GetTime()
-	local alpha = 1.0 - (now - self.endTime)
+	local alpha = self.fadeDuration - (now - self.endTime)
 	if alpha > 0 then 
-		self:SetAlpha(alpha)
+		self:SetAlpha(math.min(alpha, 1.0))
 	else
 		self:SetScript('OnUpdate', nil)
 		self:Hide()
@@ -33,8 +33,10 @@ local function FadeOut(self, event, unit, spell, _, castId)
 	self.Bar.Spark:Hide()
 	if strmatch(event, 'INTERRUPTED') or strmatch(event, 'FAILED') then
 		self.Bar:SetStatusBarColor(unpack(COLORS.INTERRUPTED))
+		self.fadeDuration = 1.5
 	else
 		self.Bar:SetValue(self.reversed and 0 or (self.endTime - self.startTime))
+		self.fadeDuration = 1.0
 	end
 	self.endTime = GetTime()
 	self.castId = nil
@@ -203,7 +205,7 @@ function EnableCastBar(self)
 	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_STOP", FadeOut)
 	
 	self:RegisterEvent("UNIT_SPELLCAST_FAILED", FadeOut)
-	self:RegisterEvent("UNIT_SPELLCAST_FAILED_QUIETLY", FadeOut)
+	self:RegisterEvent("UNIT_SPELLCAST_FAILED_QUIET", FadeOut)
 	self:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED", FadeOut)
 	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_INTERRUPTED", FadeOut)
 
@@ -227,4 +229,3 @@ function EnableCastBar(self)
 		end)
 	end
 end
-
