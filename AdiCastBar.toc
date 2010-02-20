@@ -7,7 +7,7 @@
 ## X-Date: @project-date-iso@
 
 ## SavedVariables: AdiCastBarDB
-## OptionalDeps: LibStub, CallbackHandler-1.0, LibAdiEvent-1.0, LibSharedMedia-3.0, SharedMedia, SharedMedia_MyMedia
+## OptionalDeps: LibStub, CallbackHandler-1.0, LibAdiEvent-1.0, LibSharedMedia-3.0, SharedMedia, SharedMedia_MyMedia, tekDebug
 
 # LoadManagers: AddonLoader
 # X-LoadOn-Always: delayed

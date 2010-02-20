@@ -4,7 +4,7 @@ AdiCastBar - customized unit cast bars
 All rights reserved.
 --]]
 
-if not AdiCastBar then return end
+local _, AdiCastBar = ...
 setfenv(1, AdiCastBar)
 
 local COLORS = {
@@ -26,9 +26,15 @@ local function FadingOut(self)
 	end
 end
 
+local function GetCastId(event, castId)
+	return event:match('CHANNEL') or castId
+end
+
 local strmatch = string.match
-local function FadeOut(self, event, unit, spell, _, castId)
+local function FadeOut(self, event, unit, spell, rank, castId, ...)
 	if unit and unit ~= self.unit then return end
+	castId = GetCastId(event, castId)
+	Debug('FadeOut', event, unit, spell, rank, castId, ...)	
 	if castId and castId ~= self.castId then return end
 	self.Bar.Spark:Hide()
 	if strmatch(event, 'INTERRUPTED') or strmatch(event, 'FAILED') then
@@ -119,16 +125,19 @@ local function GetCurrentCast(unit, id)
 	end
 	name, _, text, texture, startTime, endTime, _, notInterruptible = UnitChannelInfo(unit)
 	if startTime then
-		return "CHANNEL", name, text, texture, startTime, endTime, 0, notInterruptible	
+		return "CHANNEL", name, text, texture, startTime, endTime, 'CHANNEL', notInterruptible	
 	end
 end
 
-local function Update(self, event, unit, spell, _, eventCastId)
+local function Update(self, event, unit, spell, rank, eventCastId, ...)
 	if unit and unit ~= self.unit then return end
+	eventCastId = GetCastId(event, eventCastId)
+	Debug('Update', event, unit, spell, rank, eventCastId, ...)
 	if self.castId and eventCastId and self.castId ~= eventCastId then return end
 	local kind, name, text, texture, startTime, endTime, castId, notInterruptible = GetCurrentCast(self.unit, self.castId)
+	Debug('GetCurrentCast', kind, name, text, texture, startTime, endTime, castId, notInterruptible)
 	if kind then
-		local reversed = kind == "CHANNEL"
+		local reversed = (kind == "CHANNEL")
 		local delayed = (event == "UNIT_SPELLCAST_CHANNEL_UPDATE" or event == "UNIT_SPELLCAST_DELAYED")
 		UpdateDisplay(self, delayed, reversed, COLORS[kind], name, text, texture, startTime/1000, endTime/1000, notInterruptible, castId)
 	elseif self:IsShown() then

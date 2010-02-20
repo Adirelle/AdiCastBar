@@ -4,7 +4,7 @@ AdiCastBar - customized unit cast bars
 All rights reserved.
 --]]
 
-if not AdiCastBar then return end
+local _, AdiCastBar = ...
 setfenv(1, AdiCastBar)
 
 local BAR_BACKDROP = {
