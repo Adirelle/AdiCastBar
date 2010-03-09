@@ -26,16 +26,9 @@ local function FadingOut(self)
 	end
 end
 
-local function GetCastId(event, castId)
-	return event:match('CHANNEL') or castId
-end
-
 local strmatch = string.match
 local function FadeOut(self, event, unit, spell, rank, castId, ...)
-	if unit and unit ~= self.unit then return end
-	castId = GetCastId(event, castId)
 	Debug('FadeOut', event, unit, spell, rank, castId, ...)	
-	if castId and castId ~= self.castId then return end
 	self.Bar.Spark:Hide()
 	if strmatch(event, 'INTERRUPTED') or strmatch(event, 'FAILED') then
 		self.Bar:SetStatusBarColor(unpack(COLORS.INTERRUPTED))
@@ -118,34 +111,71 @@ local function UpdateDisplay(self, delayed, reversed, color, name, text, texture
 	self:Show()
 end
 
-local function GetCurrentCast(unit, id)
+local function UNIT_SPELLCAST_START(self, event, unit, spell, rank, castId, ...)
+	if unit ~= self.unit then return end
+	Debug(self, event, unit, spell, rank, castId, ...)
 	local name, _, text, texture, startTime, endTime, _, castId, notInterruptible = UnitCastingInfo(unit)
-	if startTime and (not id or id == castId) then
-		return "CAST", name, text, texture, startTime, endTime, castId, notInterruptible
-	end
-	name, _, text, texture, startTime, endTime, _, notInterruptible = UnitChannelInfo(unit)
-	if startTime then
-		return "CHANNEL", name, text, texture, startTime, endTime, 'CHANNEL', notInterruptible	
-	end
+	return UpdateDisplay(self, false, false, COLORS.CAST, name, text, texture, startTime/1000, endTime/1000, notInterruptible, castId)
 end
 
-local function Update(self, event, unit, spell, rank, eventCastId, ...)
-	if unit and unit ~= self.unit then return end
-	eventCastId = GetCastId(event, eventCastId)
-	Debug('Update', event, unit, spell, rank, eventCastId, ...)
-	if self.castId and eventCastId and self.castId ~= eventCastId then return end
-	local kind, name, text, texture, startTime, endTime, castId, notInterruptible = GetCurrentCast(self.unit, self.castId)
-	Debug('GetCurrentCast', kind, name, text, texture, startTime, endTime, castId, notInterruptible)
-	if kind then
-		local reversed = (kind == "CHANNEL")
-		local delayed = (event == "UNIT_SPELLCAST_CHANNEL_UPDATE" or event == "UNIT_SPELLCAST_DELAYED")
-		UpdateDisplay(self, delayed, reversed, COLORS[kind], name, text, texture, startTime/1000, endTime/1000, notInterruptible, castId)
+local function UNIT_SPELLCAST_DELAYED(self, event, unit, spell, rank, castId, ...)
+	if unit ~= self.unit or castId ~= self.castId then return end
+	Debug(self, event, unit, spell, rank, castId, ...)
+	local name, _, text, texture, startTime, endTime, _, castId, notInterruptible = UnitCastingInfo(unit)
+	return UpdateDisplay(self, true, false, COLORS.CAST, name, text, texture, startTime/1000, endTime/1000, notInterruptible, castId)
+end
+
+local function UNIT_SPELLCAST_INTERRUPTIBLE(self, event, unit, spell, rank, castId, ...)
+	if unit ~= self.unit or castId ~= self.castId then return end
+	Debug(self, event, unit, spell, rank, castId, ...)
+	local name, _, text, texture, startTime, endTime, _, castId, notInterruptible = UnitCastingInfo(unit)
+	return UpdateDisplay(self, false, false, COLORS.CAST, name, text, texture, startTime/1000, endTime/1000, notInterruptible, castId)
+end
+
+local UNIT_SPELLCAST_NOT_INTERRUPTIBLE = UNIT_SPELLCAST_INTERRUPTIBLE
+
+local function UNIT_SPELLCAST_STOP(self, event, unit, spell, rank, castId, ...)
+	if unit ~= self.unit or castId ~= self.castId then return end
+	Debug(self, event, unit, spell, rank, castId, ...)
+	return FadeOut(self, event, unit, spell, rank, castId)
+end
+
+local UNIT_SPELLCAST_INTERRUPTED = UNIT_SPELLCAST_STOP
+local UNIT_SPELLCAST_FAILED = UNIT_SPELLCAST_STOP
+local UNIT_SPELLCAST_FAILED_QUIET = UNIT_SPELLCAST_STOP
+ 
+local function UNIT_SPELLCAST_CHANNEL_START(self, event, unit, spell, rank, ...)
+	if unit ~= self.unit then return end
+	Debug(self, event, unit, spell, rank, ...)
+	local name, _, text, texture, startTime, endTime, _, notInterruptible = UnitChannelInfo(unit)
+	return UpdateDisplay(self, false, true, COLORS.CHANNEL, name, text, texture, startTime/1000, endTime/1000, notInterruptible, "CHANNEL")
+end
+
+local function UNIT_SPELLCAST_CHANNEL_UPDATE(self, event, unit, spell, rank, ...)
+	if unit ~= self.unit or self.castId ~= "CHANNEL" then return end
+	Debug(self, event, unit, spell, rank, ...)
+	local name, _, text, texture, startTime, endTime, _, notInterruptible = UnitChannelInfo(unit)
+	return UpdateDisplay(self, true, true, COLORS.CHANNEL, name, text, texture, startTime/1000, endTime/1000, notInterruptible, "CHANNEL")
+end
+
+local function UNIT_SPELLCAST_CHANNEL_STOP(self, event, unit, spell, rank, ...)
+	if unit ~= self.unit or self.castId ~= "CHANNEL" then return end
+	Debug(self, event, unit, spell, rank, ...)
+	return FadeOut(self, event, unit, spell, rank, "CHANNEL")
+end
+
+local UNIT_SPELLCAST_CHANNEL_INTERRUPTED = UNIT_SPELLCAST_CHANNEL_STOP
+
+local function PLAYER_ENTERING_WORLD(self, event, ...)
+	local unit = self.unit
+	Debug(self, event, unit, "casting:", UnitCastingInfo(unit), "channeling:", (UnitChannelInfo(unit)))
+	if UnitCastingInfo(unit) then
+		return UNIT_SPELLCAST_START(self, event, unit)
+	elseif UnitChannelInfo(unit) then
+		return UNIT_SPELLCAST_CHANNEL_START(self, event, unit)
 	elseif self:IsShown() then
-		if strmatch(event, '^UNIT_SPELLCAST') then
-			FadeOut(self, event, unit, spell, _, eventCastId)
-		else
-			self:Hide()
-		end
+		self.castId = nil
+		return self:Hide()
 	end
 end
 
@@ -201,39 +231,38 @@ function EnableCastBar(self)
 		self:RegisterEvent("UNIT_EXITED_VEHICLE", UpdateVehicleState)		
 	end
 
-	self:RegisterEvent("PLAYER_ENTERING_WORLD", Update)		
+	self:RegisterEvent("PLAYER_ENTERING_WORLD", PLAYER_ENTERING_WORLD)		
 	
-	self:RegisterEvent("UNIT_SPELLCAST_START", Update)
-	self:RegisterEvent("UNIT_SPELLCAST_DELAYED", Update)
-	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START", Update)
-	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_UPDATE", Update)
-	self:RegisterEvent('UNIT_SPELLCAST_INTERRUPTIBLE', Update)
-	self:RegisterEvent('UNIT_SPELLCAST_NOT_INTERRUPTIBLE', Update)
+	self:RegisterEvent("UNIT_SPELLCAST_START", UNIT_SPELLCAST_START)
+	self:RegisterEvent("UNIT_SPELLCAST_DELAYED", UNIT_SPELLCAST_DELAYED)
+	self:RegisterEvent('UNIT_SPELLCAST_INTERRUPTIBLE', UNIT_SPELLCAST_INTERRUPTIBLE)
+	self:RegisterEvent('UNIT_SPELLCAST_NOT_INTERRUPTIBLE', UNIT_SPELLCAST_NOT_INTERRUPTIBLE)	
+	self:RegisterEvent("UNIT_SPELLCAST_STOP", UNIT_SPELLCAST_STOP)
+	self:RegisterEvent("UNIT_SPELLCAST_FAILED", UNIT_SPELLCAST_FAILED)
+	self:RegisterEvent("UNIT_SPELLCAST_FAILED_QUIET", UNIT_SPELLCAST_FAILED_QUIET)
+	self:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED", UNIT_SPELLCAST_INTERRUPTED)
 	
-	self:RegisterEvent("UNIT_SPELLCAST_STOP", FadeOut)
-	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_STOP", FadeOut)
-	
-	self:RegisterEvent("UNIT_SPELLCAST_FAILED", FadeOut)
-	self:RegisterEvent("UNIT_SPELLCAST_FAILED_QUIET", FadeOut)
-	self:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED", FadeOut)
-	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_INTERRUPTED", FadeOut)
+	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START", UNIT_SPELLCAST_CHANNEL_START)
+	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_UPDATE", UNIT_SPELLCAST_CHANNEL_UPDATE)
+	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_STOP", UNIT_SPELLCAST_CHANNEL_STOP)
+	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_INTERRUPTED", UNIT_SPELLCAST_CHANNEL_INTERRUPTED)
 
 	if unit == "player" then
 		DisableBlizzardFrame(CastingBarFrame)
 
 	elseif unit == "target" then
 		DisableBlizzardFrame(TargetFrameSpellBar)
-		self:RegisterEvent("PLAYER_TARGET_CHANGED", Update)
+		self:RegisterEvent("PLAYER_TARGET_CHANGED", PLAYER_ENTERING_WORLD)
 		
 	elseif unit == "focus" then
 		DisableBlizzardFrame(FocusFrameSpellBar)
-		self:RegisterEvent("PLAYER_FOCUS_CHANGED", Update)
+		self:RegisterEvent("PLAYER_FOCUS_CHANGED", PLAYER_ENTERING_WORLD)
 		
 	elseif unit == "pet" then
 		DisableBlizzardFrame(PetCastingBarFrame)
 		self:RegisterEvent("UNIT_PET", function(self, event, unit) 
 			if unit == "player" then 
-				return Update(self, event, "pet") 
+				return PLAYER_ENTERING_WORLD(self, event, "pet") 
 			end 
 		end)
 	end
