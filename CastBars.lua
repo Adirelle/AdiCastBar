@@ -108,7 +108,7 @@ local function UpdateDisplay(self, delayed, reversed, color, name, text, texture
 		self.Icon:Hide()
 	end
 
-	SetNotInterruptible(self, notInterruptible=
+	SetNotInterruptible(self, notInterruptible)
 
 	self:SetAlpha(1.0)
 	self:SetScript('OnUpdate', TimerUpdate)
