@@ -27,10 +27,10 @@ local function FadingOut(self)
 end
 
 local strmatch = string.match
-local function FadeOut(self, event, unit, spell, rank, castId, ...)
-	Debug('FadeOut', event, unit, spell, rank, castId, ...)	
+local function FadeOut(self, failed)
+	Debug('FadeOut', failed)	
 	self.Bar.Spark:Hide()
-	if strmatch(event, 'INTERRUPTED') or strmatch(event, 'FAILED') then
+	if failed then
 		self.Bar:SetStatusBarColor(unpack(COLORS.INTERRUPTED))
 		self.fadeDuration = 1.5
 	else
@@ -50,7 +50,7 @@ local function TimerUpdate(self)
 		self.Bar:SetValue(now - self.startTime)
 	end
 	if now > self.endTime then
-		FadeOut(self, "TimerUpdate", self.unit, self.castId)
+		return FadeOut(self)
 	end
 end
 
@@ -62,7 +62,18 @@ local function SetNotInterruptible(self, notInterruptible)
 	end
 end
 
-local function UpdateDisplay(self, delayed, reversed, color, name, text, texture, startTime, endTime, notInterruptible, castId)
+local function SetTime(self, startTime, endTime, delayed)
+	if not delayed then
+		self.startTime = startTime
+		self.delay = nil
+	else
+		self.delay = startTime - self.startTime
+	end
+	self.endTime = endTime	
+	self.Bar:SetMinMaxValues(0, endTime-startTime)
+end
+
+local function StartCast(self, reversed, color, name, text, texture, startTime, endTime, notInterruptible, castId)
 	local latency = self.Latency
 	if latency then
 		local delay = self.latency[name]
@@ -72,25 +83,17 @@ local function UpdateDisplay(self, delayed, reversed, color, name, text, texture
 		
 			latency:ClearAllPoints()
 			latency:SetPoint(reversed and "LEFT" or "RIGHT", self.Bar)
-			latency:SetWidth(self.Bar:GetWidth() * delay / (endTime - startTime))
+			latency:SetWidth(self.Bar:GetWidth() * math.min(delay / (endTime - startTime), 1.0))
 			latency:Show()
 		else
 			latency:Hide()
 		end
 	end
 	
-	if not delayed then
-		self.startTime = startTime
-		self.delay = nil
-	else
-		self.delay = startTime - self.startTime
-	end
-	self.endTime = endTime
 	self.reversed = reversed
 	self.castId = castId
 	
 	self.Bar:SetStatusBarColor(unpack(color))
-	self.Bar:SetMinMaxValues(0, endTime-startTime)
 	self.Bar.Spark:Show()
 	
 	text = name or text
@@ -108,6 +111,7 @@ local function UpdateDisplay(self, delayed, reversed, color, name, text, texture
 		self.Icon:Hide()
 	end
 
+	SetTime(self, startTime, endTime)
 	SetNotInterruptible(self, notInterruptible)
 
 	self:SetAlpha(1.0)
@@ -115,65 +119,74 @@ local function UpdateDisplay(self, delayed, reversed, color, name, text, texture
 	self:Show()
 end
 
-local function UNIT_SPELLCAST_START(self, event, unit, spell, rank, castId, ...)
+local function UNIT_SPELLCAST_START(self, event, unit, _, _, castId)
 	if unit ~= self.unit then return end
-	Debug(self, event, unit, spell, rank, castId, ...)
 	local name, _, text, texture, startTime, endTime, _, castId, notInterruptible = UnitCastingInfo(unit)
-	return UpdateDisplay(self, false, false, COLORS.CAST, name, text, texture, startTime/1000, endTime/1000, notInterruptible, castId)
+	Debug(self, event, unit, castId, rank, name, text, texture, startTime, endTime, castId, notInterruptible)
+	return StartCast(self, false, COLORS.CAST, name, text, texture, startTime/1000, endTime/1000, notInterruptible, castId)
 end
 
-local function UNIT_SPELLCAST_DELAYED(self, event, unit, spell, rank, castId, ...)
+local function UNIT_SPELLCAST_DELAYED(self, event, unit, _, _, castId)
 	if unit ~= self.unit or castId ~= self.castId then return end
-	Debug(self, event, unit, spell, rank, castId, ...)
-	local name, _, text, texture, startTime, endTime, _, castId, notInterruptible = UnitCastingInfo(unit)
-	return UpdateDisplay(self, true, false, COLORS.CAST, name, text, texture, startTime/1000, endTime/1000, notInterruptible, castId)
+	local _, _, _, _, startTime, endTime = UnitCastingInfo(unit)
+	Debug(self, event, unit, castId, startTime, endTime)
+	return SetTime(self, startTime/1000, endTime/1000, true)
 end
 
-local function UNIT_SPELLCAST_INTERRUPTIBLE(self, event, unit, ...)
+local function UNIT_SPELLCAST_INTERRUPTIBLE(self, event, unit)
 	if unit ~= self.unit or not self.castId then return end
-	Debug(self, event, unit, ...)
+	Debug(self, event, unit)
 	return SetNotInterruptible(self, false)
 end
 
-local function UNIT_SPELLCAST_NOT_INTERRUPTIBLE(self, event, unit, ...)
+local function UNIT_SPELLCAST_NOT_INTERRUPTIBLE(self, event, unit)
 	if unit ~= self.unit or not self.castId then return end
-	Debug(self, event, unit, ...)
+	Debug(self, event, unit)
 	return SetNotInterruptible(self, true)
 end
 
-local function UNIT_SPELLCAST_STOP(self, event, unit, spell, rank, castId, ...)
+local function UNIT_SPELLCAST_STOP(self, event, unit, _, _, castId)
 	if unit ~= self.unit or castId ~= self.castId then return end
-	Debug(self, event, unit, spell, rank, castId, ...)
-	return FadeOut(self, event, unit, spell, rank, castId)
+	Debug(self, event, unit, castId)
+	return FadeOut(self)
 end
 
-local UNIT_SPELLCAST_INTERRUPTED = UNIT_SPELLCAST_STOP
-local UNIT_SPELLCAST_FAILED = UNIT_SPELLCAST_STOP
-local UNIT_SPELLCAST_FAILED_QUIET = UNIT_SPELLCAST_STOP
+local function UNIT_SPELLCAST_INTERRUPTED(self, event, unit, _, _, castId)
+	if unit ~= self.unit or castId ~= self.castId then return end
+	Debug(self, event, unit, castId)
+	return FadeOut(self, true)
+end
+
+local UNIT_SPELLCAST_FAILED = UNIT_SPELLCAST_INTERRUPTED
+local UNIT_SPELLCAST_FAILED_QUIET = UNIT_SPELLCAST_INTERRUPTED
  
-local function UNIT_SPELLCAST_CHANNEL_START(self, event, unit, spell, rank, ...)
+local function UNIT_SPELLCAST_CHANNEL_START(self, event, unit)
 	if unit ~= self.unit then return end
-	Debug(self, event, unit, spell, rank, ...)
 	local name, _, text, texture, startTime, endTime, _, notInterruptible = UnitChannelInfo(unit)
-	return UpdateDisplay(self, false, true, COLORS.CHANNEL, name, text, texture, startTime/1000, endTime/1000, notInterruptible, "CHANNEL")
+	Debug(self, event, unit, name, text, texture, startTime, endTime, notInterruptible)
+	return StartCast(self, true, COLORS.CHANNEL, name, text, texture, startTime/1000, endTime/1000, notInterruptible, "CHANNEL")
 end
 
-local function UNIT_SPELLCAST_CHANNEL_UPDATE(self, event, unit, spell, rank, ...)
+local function UNIT_SPELLCAST_CHANNEL_UPDATE(self, event, unit)
 	if unit ~= self.unit or self.castId ~= "CHANNEL" then return end
-	Debug(self, event, unit, spell, rank, ...)
-	local name, _, text, texture, startTime, endTime, _, notInterruptible = UnitChannelInfo(unit)
-	return UpdateDisplay(self, true, true, COLORS.CHANNEL, name, text, texture, startTime/1000, endTime/1000, notInterruptible, "CHANNEL")
+	local _, _, _, _, startTime, endTime = UnitChannelInfo(unit)
+	Debug(self, event, unit, startTime, endTime)
+	return SetTime(self, startTime/1000, endTime/1000, true)	
 end
 
-local function UNIT_SPELLCAST_CHANNEL_STOP(self, event, unit, spell, rank, ...)
+local function UNIT_SPELLCAST_CHANNEL_STOP(self, event, unit)
 	if unit ~= self.unit or self.castId ~= "CHANNEL" then return end
-	Debug(self, event, unit, spell, rank, ...)
-	return FadeOut(self, event, unit, spell, rank, "CHANNEL")
+	Debug(self, event, unit)
+	return FadeOut(self)
 end
 
-local UNIT_SPELLCAST_CHANNEL_INTERRUPTED = UNIT_SPELLCAST_CHANNEL_STOP
+local function UNIT_SPELLCAST_CHANNEL_INTERRUPTED(self, event, unit)
+	if unit ~= self.unit or self.castId ~= "CHANNEL" then return end
+	Debug(self, event, unit)
+	return FadeOut(self, true)
+end
 
-local function PLAYER_ENTERING_WORLD(self, event, ...)
+local function PLAYER_ENTERING_WORLD(self, event)
 	local unit = self.unit
 	Debug(self, event, unit, "casting:", UnitCastingInfo(unit), "channeling:", (UnitChannelInfo(unit)))
 	if UnitCastingInfo(unit) then
