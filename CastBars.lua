@@ -54,6 +54,14 @@ local function TimerUpdate(self)
 	end
 end
 
+local function SetNotInterruptible(self, notInterruptible)
+	if notInterruptible then
+		self.Border:SetBackdropBorderColor(0.5, 0.5, 0.5, 1)
+	else
+		self.Border:SetBackdropBorderColor(0, 0, 0, 1)
+	end
+end
+
 local function UpdateDisplay(self, delayed, reversed, color, name, text, texture, startTime, endTime, notInterruptible, castId)
 	local latency = self.Latency
 	if latency then
@@ -100,11 +108,7 @@ local function UpdateDisplay(self, delayed, reversed, color, name, text, texture
 		self.Icon:Hide()
 	end
 
-	if notInterruptible then
-		self.Border:SetBackdropBorderColor(0.5, 0.5, 0.5, 1)
-	else
-		self.Border:SetBackdropBorderColor(0, 0, 0, 1)
-	end
+	SetNotInterruptible(self, notInterruptible=
 
 	self:SetAlpha(1.0)
 	self:SetScript('OnUpdate', TimerUpdate)
@@ -125,14 +129,17 @@ local function UNIT_SPELLCAST_DELAYED(self, event, unit, spell, rank, castId, ..
 	return UpdateDisplay(self, true, false, COLORS.CAST, name, text, texture, startTime/1000, endTime/1000, notInterruptible, castId)
 end
 
-local function UNIT_SPELLCAST_INTERRUPTIBLE(self, event, unit, spell, rank, castId, ...)
-	if unit ~= self.unit or castId ~= self.castId then return end
-	Debug(self, event, unit, spell, rank, castId, ...)
-	local name, _, text, texture, startTime, endTime, _, castId, notInterruptible = UnitCastingInfo(unit)
-	return UpdateDisplay(self, false, false, COLORS.CAST, name, text, texture, startTime/1000, endTime/1000, notInterruptible, castId)
+local function UNIT_SPELLCAST_INTERRUPTIBLE(self, event, unit, ...)
+	if unit ~= self.unit or not self.castId then return end
+	Debug(self, event, unit, ...)
+	return SetNotInterruptible(self, false)
 end
 
-local UNIT_SPELLCAST_NOT_INTERRUPTIBLE = UNIT_SPELLCAST_INTERRUPTIBLE
+local function UNIT_SPELLCAST_NOT_INTERRUPTIBLE(self, event, unit, ...)
+	if unit ~= self.unit or not self.castId then return end
+	Debug(self, event, unit, ...)
+	return SetNotInterruptible(self, true)
+end
 
 local function UNIT_SPELLCAST_STOP(self, event, unit, spell, rank, castId, ...)
 	if unit ~= self.unit or castId ~= self.castId then return end
