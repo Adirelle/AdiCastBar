@@ -219,7 +219,7 @@ local function UpdateVehicleState(self, event, unit)
 	local newUnit = UnitHasVehicleUI('player') and 'vehicle' or 'player'
 	if newUnit ~= self.unit then
 		self.unit = newUnit
-		Update(self, event, newUnit)
+		return PLAYER_ENTERING_WORLD(self, event)
 	end
 end
 
