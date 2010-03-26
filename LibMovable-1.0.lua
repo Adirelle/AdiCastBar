@@ -4,12 +4,13 @@ LibMovable-1.0 - Movable frame library
 All rights reserved.
 --]]
 
-local MAJOR, MINOR = 'LibMovable-1.0', 4
+local MAJOR, MINOR = 'LibMovable-1.0', 9
 local lib, oldMinor = LibStub:NewLibrary(MAJOR, MINOR)
 if not lib then return end
 oldMinor = oldMinor or 0
 
 -- Localization
+L_MENU_ENABLED = "Enabled"
 L_MENU_CENTER_X = "Center horizontally"
 L_MENU_CENTER_Y = "Center vertically"
 L_MENU_RESET = "Reset to default position"
@@ -21,8 +22,12 @@ L_TIP_SHIFT_DRAG = "Shift+drag: move vertically."
 L_TIP_CTRL_DRAG = "Control+drag: move horizontally."
 L_TIP_MOUSEWHEEL = "Mousewheel: change scale."
 L_TIP_RIGHT_CLICK = "Right-click: open menu."
+L_TIP_SHIFT_RIGHT_CLICK ="Shift+right-click: enable/disable."
+L_DISABLED = " (disabled)"
+L_IN_COMBAT_LOCKDOWN = " (locked down in combat)"
 
 if GetLocale() == "frFR" then
+	L_MENU_ENABLED = "Activé"
 	L_MENU_CENTER_X = "Centrer horizontalement"
 	L_MENU_CENTER_Y = "Centrer verticalement"
 	L_MENU_RESET = "Réinitialiser la position"
@@ -34,14 +39,17 @@ if GetLocale() == "frFR" then
 	L_TIP_CTRL_DRAG = "Tirer en pressant Ctrl : déplacer horizontalement."
 	L_TIP_MOUSEWHEEL = "Molette de la souris : changer l'échelle d'affichage."
 	L_TIP_RIGHT_CLICK = "Clic droit : ouvrir le menu."
+	L_TIP_SHIFT_RIGHT_CLICK ="Maj+clic droit: activer/désactiver."
+	L_DISABLED = " (désactivé)"	
+	L_IN_COMBAT_LOCKDOWN = " (verrouilé en combat)"
 end
-		
+
 -- Frame layout helpers
 
 local function GetFrameLayout(frame)
 	local scale, pointFrom, refFrame, pointTo, xOffset, yOffset = frame:GetScale(), frame:GetPoint()
-	if refFrame == frame:GetParent() then
-		refFrame = nil
+	if refFrame == frame:GetParent() or refFrame == nil then
+		refFrame = frame:GetParent():GetName() or "__parent"
 	elseif refFrame then
 		refFrame = refFrame:GetName()
 		if not refFrame then
@@ -52,37 +60,39 @@ local function GetFrameLayout(frame)
 end
 
 local function __SetFrameLayout(frame, scale, pointFrom, refFrame, pointTo, xOffset, yOffset)
-	refFrame = refFrame and _G[refFrame] or frame:GetParent()
+	if refFrame == "__parent" or not refFrame then
+		refFrame = frame:GetParent()
+	else
+		refFrame = _G[refFrame]
+	end
 	frame:ClearAllPoints()
 	frame:SetScale(scale)
 	frame:SetPoint(pointFrom, refFrame, pointTo, xOffset, yOffset)
 end
 
-local function ProcessPendingLayouts()
-	for frame, layout in pairs(lib.pendingLayouts) do
-		__SetFrameLayout(frame, unpack(layout))
+function lib.ProcessPendingLayouts()
+	for frame, t in pairs(lib.pendingLayouts) do
+		if frame:CanChangeProtectedState() then
+			__SetFrameLayout(frame, t.scale, t.pointFrom, t.refFrame, t.pointTo, t.xOffset, t.yOffset)
+			lib.pendingLayouts[frame] = nil
+		end
 	end
-	wipe(lib.pendingLayouts)
 end
 
-local function SetFrameLayout(frame, ...)
-	if frame:IsProtected() and InCombatLockdown() then
+local function SetFrameLayout(frame, scale, pointFrom, refFrame, pointTo, xOffset, yOffset)
+	if not frame:CanChangeProtectedState() then
 		if not lib.oocFrame then
+			local frame = CreateFrame("Frame")
+			frame:SetScript('OnEvent', function() return lib.ProcessPendingLayouts() end)
+			frame:RegisterEvent('PLAYER_REGEN_ENABLED')
 			lib.pendingLayouts = {}
-			lib.oocFrame = CreateFrame("Frame")
-			lib.oocFrame:SetScript('OnEvent', ProcessPendingLayouts)
-			lib.oocFrame:RegisterEvent('PLAYER_REGEN_ENABLED')
+			lib.oocFrame = frame
 		end
-		if not lib.pendingLayouts[frame] then
-			lib.pendingLayouts[frame] = { ... }
-		else
-			local l = lib.pendingLayouts[frame]
-			for i = 1, select('#', ...) do
-				l[i] = select(i, ...)
-			end
-		end
+		local t = lib.pendingLayouts[frame] or {}
+		t.scale, t.pointFrom, t.refFrame, t.pointTo, t.xOffset, t.yOffset = scale, pointFrom, refFrame, pointTo, xOffset, yOffset
+		lib.pendingLayouts[frame] = t
 	else
-		return __SetFrameLayout(frame, ...)
+		return __SetFrameLayout(frame, scale, pointFrom, refFrame, pointTo, xOffset, yOffset)
 	end
 end
 
@@ -101,7 +111,7 @@ local proto = lib.proto
 wipe(proto)
 
 function proto.InCombatLockdown(overlay)
-	return overlay.protected and InCombatLockdown()
+	return not overlay.target:CanChangeProtectedState()
 end
 
 function proto.UpgradeOverlay(overlay)
@@ -169,16 +179,30 @@ end
 function proto.MoveToCenter(overlay, centerX, centerY)
 	if overlay:InCombatLockdown() then return end
 	local target = overlay.target
-	local scaleFactor = target:GetEffectiveScale() / UIParent:GetEffectiveScale()
-	local cx, cy = target:GetCenter()
-	local from, ref, to, x, y = target:GetPoint()
-	if centerX then
-		x = x + (UIParent:GetWidth() / 2 - cx) * scaleFactor 
+	local screenWidth, screenHeight = UIParent:GetWidth(), UIParent:GetHeight()
+	local scale, cx, cy = target:GetEffectiveScale() / UIParent:GetEffectiveScale(), target:GetCenter()
+	cx, cy = cx * scale, cy * scale
+	if centerX then cx = screenWidth / 2 end
+	if centerY then cy = screenHeight / 2 end
+	local point = ""
+	if cy < screenHeight / 3 then
+		point, cy = "BOTTOM", cy - target:GetHeight() / 2
+	elseif cy > screenHeight * 2 / 3 then
+		point, cy = "TOP", cy + target:GetHeight() / 2 - screenHeight
+	else
+		cy = cy - screenHeight / 2 
 	end
-	if centerY then
-		y = y + (UIParent:GetHeight() / 2 - cy) * scaleFactor
+	if cx < screenWidth / 3 then
+		point, cx = point .. "LEFT", cx - target:GetWidth() / 2
+	elseif cy > screenWidth * 2 / 3 then
+		point, cx = point .. "RIGHT", cx + target:GetWidth() / 2 - screenWidth
+	else
+		cx = cx - screenWidth / 2
 	end
-	target:SetPoint(from, ref, to, x, y)
+	if point == "" then point = "CENTER" end
+	target:ClearAllPoints()
+	target:SetPoint(point, UIParent, point, cx / scale, cy / scale)
+	overlay:UpdateDatabase()
 end
 
 function proto.ResetLayout(overlay)
@@ -188,17 +212,55 @@ function proto.ResetLayout(overlay)
 	overlay:ApplyLayout()
 end
 
+function proto.UpdateDisplay(overlay)
+	local r, g, b, labelSuffix, alpha = 0, 1, 0, "", 1
+	if inCombat and overlay.protected then
+		r, g, b, labelSuffix, alpha = 1, 0, 0, L_IN_COMBAT_LOCKDOWN, 0.4
+	elseif not overlay:IsTargetEnabled() then
+		r, g, b, labelSuffix = 0.5, 0.5, 0.5, L_DISABLED
+	end
+	overlay:SetAlpha(alpha)
+	overlay:SetBackdropColor(r, g, b, 1)
+	overlay.Text:SetText(overlay.label..labelSuffix)
+end
+
+function proto.CanDisableTarget(overlay)
+	return overlay.canDisableTarget
+end
+
+function proto.IsTargetEnabled(overlay)
+	if overlay.canDisableTarget then
+		local ok, returnValue = pcall(overlay.target.LM10_IsEnabled, overlay.target)
+		if ok then 
+			return returnValue
+		else
+			geterrorhandler()(returnValue)
+		end
+	end
+	return true
+end
+
+function proto.ToggleTarget(overlay)
+	if overlay.canDisableTarget then
+		local func = overlay:IsTargetEnabled() and "LM10_Disable" or "LM10_Enable"
+		local ok, returnValue = pcall(overlay.target[func], overlay.target)
+		if not ok then
+			geterrorhandler()(returnValue)
+		end
+		overlay:UpdateDisplay()
+	end
+end
+
 function proto.EnableOverlay(overlay, inCombat)
 	if inCombat and overlay.protected then
 		overlay:StopMoving()
-		overlay:SetBackdropColor(1, 0, 0, 0.4)
 		overlay:EnableMouse(false)
 		overlay:EnableMouseWheel(false)
 	else
-		overlay:SetBackdropColor(0, 1, 0, 1)
 		overlay:EnableMouse(true)
 		overlay:EnableMouseWheel(true)
 	end
+	overlay:UpdateDisplay()
 end
 
 function proto.SetScripts(overlay)
@@ -212,21 +274,23 @@ end
 -- Menu definition and method
 
 local menuOverlay
-local menuFrame = _G.DropDownList1
 local menu = {
-	{ isTitle = true },
-	{ text = L_MENU_CENTER_X, func = function() menuOverlay:MoveToCenter(true, false) end },
-	{ text = L_MENU_CENTER_Y, func = function() menuOverlay:MoveToCenter(false, true) end },
-	{	text = L_MENU_RESET, func = function() menuOverlay:ResetLayout() end },
-	{ text = L_MENU_HIDE_THIS, func = function() menuOverlay:Hide() end },
-	{ text = L_MENU_HIDE_ALL, func = function() lib.Lock() end },
-	{ text = CANCEL }
+	{ isTitle = true, notCheckable = true },
+	{ text = false, func = function() menuOverlay:ToggleTarget() end, checked = function() return menuOverlay:IsTargetEnabled() end },
+	{ text = L_MENU_CENTER_X, func = function() menuOverlay:MoveToCenter(true, false) end, notCheckable = true },
+	{ text = L_MENU_CENTER_Y, func = function() menuOverlay:MoveToCenter(false, true) end, notCheckable = true },
+	{	text = L_MENU_RESET, func = function() menuOverlay:ResetLayout() end, notCheckable = true },
+	{ text = L_MENU_HIDE_THIS, func = function() menuOverlay:Hide() end, notCheckable = true },
+	{ text = L_MENU_HIDE_ALL, func = function() lib.Lock() end, notCheckable = true },
+	{ text = CANCEL, notCheckable = true }
 }
 
 function proto.OpenMenu(overlay)
+	lib.menuFrame = lib.menuFrame or CreateFrame("Frame", "LibMovable10MenuDropDown", UIParent, "UIDropDownMenuTemplate")
 	menuOverlay = overlay
 	menu[1].text = menuOverlay.label
-	EasyMenu(menu, menuFrame, "cursor", 0, 0)
+	menu[2].text = menuOverlay:CanDisableTarget() and L_MENU_ENABLED or false
+	EasyMenu(menu, lib.menuFrame, "cursor", 0, 0, "MENU")
 end
 
 -- Overlay event handlers
@@ -263,6 +327,9 @@ function proto.OnEnter(overlay)
 	GameTooltip:AddLine(L_TIP_CTRL_DRAG, 1, 1, 1)
 	GameTooltip:AddLine(L_TIP_MOUSEWHEEL, 1, 1, 1)
 	GameTooltip:AddLine(L_TIP_RIGHT_CLICK, 1, 1, 1)
+	if overlay:CanDisableTarget() then
+		GameTooltip:AddLine(L_TIP_SHIFT_RIGHT_CLICK, 1, 1, 1)
+	end
 	GameTooltip:Show()
 end
 
@@ -303,7 +370,11 @@ function proto.OnMouseUp(overlay, button)
 		overlay:StopMoving()
 	elseif button == "RightButton" then
 		overlay:StopMoving()
-		overlay:OpenMenu()
+		if overlay:CanDisableTarget() and IsShiftKeyDown() then
+			overlay:ToggleTarget()
+		else
+			overlay:OpenMenu()
+		end
 	end
 end
 
@@ -341,7 +412,12 @@ function lib.RegisterMovable(key, target, db, label, anchor)
 	else
 		db = {}
 	end
-
+	
+	local canDisableTarget = 
+			type(target.LM10_Enable) == "function"
+			and type(target.LM10_Disable) == "function"
+			and type(target.LM10_IsEnabled) == "function"
+	
 	overlaysToBe[target] = {
 		version = MINOR,
 		label = label,
@@ -350,6 +426,7 @@ function lib.RegisterMovable(key, target, db, label, anchor)
 		db = db,
 		key = key,
 		protected = protected,
+		canDisableTarget = canDisableTarget,
 		defaults = {
 			scale = scale,
 			pointFrom = pointFrom,
@@ -509,4 +586,3 @@ CONFIGMODE_CALLBACKS['Movable Frames'] = function(action)
 		lib.Lock()
 	end
 end
-
