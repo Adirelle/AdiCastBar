@@ -63,14 +63,27 @@ local function Update(self, event)
 	end
 end
 
-local lae = LibStub('LibAdiEvent-1.0')
-function EnableGCD(self)
-	lae.Embed(self)
-	
+local function OnEnable(self)	
 	self:RegisterEvent('PLAYER_ENTERING_WORLD', Update)
 	self:RegisterEvent('SPELL_UPDATE_COOLDOWN', Update)
 	self:SetScript('OnUpdate', UpdateTimer)
 	self:Hide()
-	
-	Update(self, "EnableGCD")
+	if IsLoggedIn() then
+		Update(self, "OnEnable")
+	end
+end
+
+local function OnDisable(self)	
+	self:UnregisterEvent('PLAYER_ENTERING_WORLD', Update)
+	self:UnregisterEvent('SPELL_UPDATE_COOLDOWN', Update)
+	self:SetScript('OnUpdate', nil)
+	self:Hide()
+end
+
+local AdiEvent = LibStub('LibAdiEvent-1.0')
+function InitGCD(self)
+	AdiEvent.Embed(self)
+	self.OnEnable = OnEnable
+	self.OnDisable = OnDisable
+	self:Hide()
 end

@@ -4,7 +4,7 @@ AdiCastBar - customized unit cast bars
 All rights reserved.
 --]]
 
-local _, AdiCastBar = ...
+local addonName, AdiCastBar = ...
 setfenv(1, AdiCastBar)
 
 local BAR_BACKDROP = {
@@ -67,7 +67,6 @@ local function OnBarValuesChange(bar)
 	end
 	bar.Spark:SetPoint("CENTER", bar, "LEFT", width * (current-min) / (max-min), 0)
 end
-
 
 local function SpawnCastBar(unit, width, height, withLatency)
 	local self = CreateFrame("Frame", "AdiCastBar_"..unit, UIParent)
@@ -134,12 +133,12 @@ local function SpawnCastBar(unit, width, height, withLatency)
 	spark:SetWidth(20)
 	spark:SetHeight(height*2.2)	
 	bar.Spark = spark
-	
-	EnableCastBar(self)
+
+	InitCastBar(self)
 	return self
 end
 
-local function SpawnGCDBar(width, height)
+local function SpawnGCDBar(_, width, height)
 	local self = CreateFrame("Frame", "AdiCastBar_GCD", UIParent)
 	self:SetWidth(width)
 	self:SetHeight(height)
@@ -154,47 +153,59 @@ local function SpawnGCDBar(width, height)
 	spark:SetHeight(height*2.2)	
 	self.Spark = spark
 	
-	EnableGCD(self)
+	InitGCD(self)
 	return self
 end
 
-local player = SpawnCastBar('player', 250, 20, true)
-player:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 180)
-
-local gcd = SpawnGCDBar(250, 4)
-gcd:SetPoint("TOP", player, "BOTTOM", 0, -4)
-
-local target = SpawnCastBar('target', 330, 32)
-target:SetPoint("TOP", UIParent, "TOP", 0, -220)
-
-local lmkey = "AdiCastBar"
-local lae = LibStub('LibAdiEvent-1.0')
-local lm = LibStub('LibMovable-1.0')
+local AdiEvent = LibStub('LibAdiEvent-1.0')
 
 local function AddonLoaded(self, _, name)
-	if name:lower() ~= "adicastbar" then return end
-	lae:UnregisterEvent('ADDON_LOADED', AddonLoaded)
+	if name ~= addonName then return end
+	AdiEvent:UnregisterEvent('ADDON_LOADED', AddonLoaded)
 		
 	_G.AdiCastBarDB = _G.AdiCastBarDB or {}
 	local db = _G.AdiCastBarDB
-	db.player = db.player or {}
-	db.target = db.target or {}
-	db.gcd = db.gcd or {}
+	db.disabled = db.disabled or {}
+	
+	local Movable = LibStub('LibMovable-1.0')
+	local function Spawn(spawnFunc, key, label, width, height, from, anchor, to, xOffset, yOffset, ...)
+		Debug('Spawn', 'key=', key, 'label=', label, 'point=', from, anchor, to, xOffset, yOffset, 'spawnArgs=', key, width, height, ...)
+		local bar = spawnFunc(key, width, height, ...)
+		bar:SetPoint(from, anchor, to, xOffset, yOffset)
+		bar.LM10_Enable = function(self) db.disabled[key] = nil self:OnEnable() end
+		bar.LM10_Disable = function(self) db.disabled[key] = true self:OnDisable() end
+		bar.LM10_IsEnabled = function() return not db.disabled[key] end
+		db[key] = db[key] or {}
+		Movable.RegisterMovable(addonName, bar, db[key], label)
+		if not db.disabled[key] then
+			bar:OnEnable()
+		end
+		return bar
+	end
+	
+	local player = Spawn(
+		SpawnCastBar, 'player', "Player casting bar", 250, 20, 
+		"BOTTOM", UIParent, "BOTTOM", 0, 180, 
+		true
+	)
+	Spawn(
+		SpawnGCDBar, 'gcd', "Player global cooldown", 250, 4,
+		"TOP", player, "BOTTOM", 0, -4
+	)
+	Spawn(
+		SpawnCastBar, 'target', "Target casting bar", 330, 32, 
+		"TOP", UIParent, "TOP", 0, -220
+	)
 
-	lm.RegisterMovable(lmkey, player, db.player, "Player casting bar")
-	lm.RegisterMovable(lmkey, target, db.target, "Target casting bar")
-	lm.RegisterMovable(lmkey, gcd, db.gcd, "Global cooldown")
-end
-
-lae:RegisterEvent('ADDON_LOADED', AddonLoaded)
-
-_G.SLASH_ADICASTBAR1 = "/adicastbar"
-_G.SLASH_ADICASTBAR2 = "/acb"
-SlashCmdList.ADICASTBAR = function()
-	if lm.IsLocked(lmkey) then
-		lm.Unlock(lmkey)
-	else
-		lm.Lock(lmkey)
+	_G.SLASH_ADICASTBAR1 = "/adicastbar"
+	_G.SLASH_ADICASTBAR2 = "/acb"
+	SlashCmdList.ADICASTBAR = function()
+		if Movable.IsLocked(addonName) then
+			Movable.Unlock(addonName)
+		else
+			Movable.Lock(addonName)
+		end
 	end
 end
 
+AdiEvent:RegisterEvent('ADDON_LOADED', AddonLoaded)

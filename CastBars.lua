@@ -199,6 +199,12 @@ local function PLAYER_ENTERING_WORLD(self, event)
 	end
 end
 
+local function UNIT_PET(self, event, unit)
+	if unit == "player" then 
+		return PLAYER_ENTERING_WORLD(self, event) 
+	end 
+end
+
 local function LatencyStart(self, event, unit, spell)
 	if unit and unit ~= self.unit then return end
 	self.latency[spell] = nil
@@ -231,15 +237,8 @@ local function DisableBlizzardFrame(frame)
 	frame:Hide()
 end
 
-local lae = LibStub('LibAdiEvent-1.0')
-function EnableCastBar(self)
-	local unit = self.unit
-	if not unit then return print('Ignoring castbar, no unit') end
-	lae.Embed(self)
-
+local function OnEnable(self)
 	if self.Latency then
-		self.latency = {}
-		self.latencyStart = {}
 		self:RegisterEvent("UNIT_SPELLCAST_SENT", LatencyStart)
 		self:RegisterEvent("UNIT_SPELLCAST_START", LatencyEnd)
 		self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START", LatencyEnd)
@@ -267,23 +266,86 @@ function EnableCastBar(self)
 	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_STOP", UNIT_SPELLCAST_CHANNEL_STOP)
 	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_INTERRUPTED", UNIT_SPELLCAST_CHANNEL_INTERRUPTED)
 
-	if unit == "player" then
-		DisableBlizzardFrame(CastingBarFrame)
-
-	elseif unit == "target" then
-		DisableBlizzardFrame(TargetFrameSpellBar)
+	if unit == "target" then
 		self:RegisterEvent("PLAYER_TARGET_CHANGED", PLAYER_ENTERING_WORLD)
 		
 	elseif unit == "focus" then
-		DisableBlizzardFrame(FocusFrameSpellBar)
 		self:RegisterEvent("PLAYER_FOCUS_CHANGED", PLAYER_ENTERING_WORLD)
 		
 	elseif unit == "pet" then
-		DisableBlizzardFrame(PetCastingBarFrame)
-		self:RegisterEvent("UNIT_PET", function(self, event, unit) 
-			if unit == "player" then 
-				return PLAYER_ENTERING_WORLD(self, event, "pet") 
-			end 
-		end)
+		self:RegisterEvent("UNIT_PET", UNIT_PET)
 	end
+	
+	
+	if IsLoggedIn() then
+		PLAYER_ENTERING_WORLD(self, 'OnEnable')
+	end
+end
+
+local function OnDisable(self)
+	if self.Latency then
+		self:UnregisterEvent("UNIT_SPELLCAST_SENT", LatencyStart)
+		self:UnregisterEvent("UNIT_SPELLCAST_START", LatencyEnd)
+		self:UnregisterEvent("UNIT_SPELLCAST_CHANNEL_START", LatencyEnd)
+	end
+	
+	if unit == "player" then			
+		self:UnregisterEvent("PLAYER_ENTERING_WORLD", UpdateVehicleState)		
+		self:UnregisterEvent("UNIT_ENTERED_VEHICLE", UpdateVehicleState)		
+		self:UnregisterEvent("UNIT_EXITED_VEHICLE", UpdateVehicleState)		
+	end
+
+	self:UnregisterEvent("PLAYER_ENTERING_WORLD", PLAYER_ENTERING_WORLD)		
+	
+	self:UnregisterEvent("UNIT_SPELLCAST_START", UNIT_SPELLCAST_START)
+	self:UnregisterEvent("UNIT_SPELLCAST_DELAYED", UNIT_SPELLCAST_DELAYED)
+	self:UnregisterEvent('UNIT_SPELLCAST_INTERRUPTIBLE', UNIT_SPELLCAST_INTERRUPTIBLE)
+	self:UnregisterEvent('UNIT_SPELLCAST_NOT_INTERRUPTIBLE', UNIT_SPELLCAST_NOT_INTERRUPTIBLE)	
+	self:UnregisterEvent("UNIT_SPELLCAST_STOP", UNIT_SPELLCAST_STOP)
+	self:UnregisterEvent("UNIT_SPELLCAST_FAILED", UNIT_SPELLCAST_FAILED)
+	self:UnregisterEvent("UNIT_SPELLCAST_FAILED_QUIET", UNIT_SPELLCAST_FAILED_QUIET)
+	self:UnregisterEvent("UNIT_SPELLCAST_INTERRUPTED", UNIT_SPELLCAST_INTERRUPTED)
+	
+	self:UnregisterEvent("UNIT_SPELLCAST_CHANNEL_START", UNIT_SPELLCAST_CHANNEL_START)
+	self:UnregisterEvent("UNIT_SPELLCAST_CHANNEL_UPDATE", UNIT_SPELLCAST_CHANNEL_UPDATE)
+	self:UnregisterEvent("UNIT_SPELLCAST_CHANNEL_STOP", UNIT_SPELLCAST_CHANNEL_STOP)
+	self:UnregisterEvent("UNIT_SPELLCAST_CHANNEL_INTERRUPTED", UNIT_SPELLCAST_CHANNEL_INTERRUPTED)
+
+	if unit == "target" then
+		self:UnregisterEvent("PLAYER_TARGET_CHANGED", PLAYER_ENTERING_WORLD)
+		
+	elseif unit == "focus" then
+		self:UnregisterEvent("PLAYER_FOCUS_CHANGED", PLAYER_ENTERING_WORLD)
+		
+	elseif unit == "pet" then
+		self:UnregisterEvent("UNIT_PET", UNIT_PET)
+	end
+	
+	self:Hide()
+end
+
+local AdiEvent = LibStub('LibAdiEvent-1.0')
+function InitCastBar(self)
+	local unit = self.unit
+	if not unit then return print('Ignoring castbar, no unit') end
+	AdiEvent.Embed(self)
+	self.OnEnable = OnEnable
+	self.OnDisable = OnDisable
+
+	if self.Latency then
+		self.latency = {}
+		self.latencyStart = {}
+	end
+
+	if unit == "player" then
+		DisableBlizzardFrame(CastingBarFrame)
+	elseif unit == "target" then
+		DisableBlizzardFrame(TargetFrameSpellBar)		
+	elseif unit == "focus" then
+		DisableBlizzardFrame(FocusFrameSpellBar)		
+	elseif unit == "pet" then
+		DisableBlizzardFrame(PetCastingBarFrame)
+	end
+	
+	self:Hide()
 end
