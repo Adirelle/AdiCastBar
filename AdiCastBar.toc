@@ -1,13 +1,13 @@
 ## Interface: 30300
 
 ## Title: AdiCastBar
-## Notes: Light-weight, enhanced casting bar.
+## Notes: Light-weight, enhanced casting bars.
 ## Author: Adirelle
 ## Version: @project-version@
 ## X-Date: @project-date-iso@
 
 ## SavedVariables: AdiCastBarDB
-## OptionalDeps: LibStub, CallbackHandler-1.0, LibAdiEvent-1.0, LibSharedMedia-3.0, SharedMedia, SharedMedia_MyMedia, tekDebug
+## OptionalDeps: LibStub, CallbackHandler-1.0, LibAdiEvent-1.0, LibMovable-1.0, LibSharedMedia-3.0, SharedMedia, SharedMedia_MyMedia, tekDebug
 
 # LoadManagers: AddonLoader
 # X-LoadOn-Always: delayed
