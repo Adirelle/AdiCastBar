@@ -1,0 +1,12 @@
+package-as: AdiCastBar
+
+externals:
+  libs/LibStub: 
+    url: svn://svn.wowace.com/wow/libstub/mainline/trunk
+    tag: latest
+  libs/LibMovable-1.0: git://github.com/Adirelle/LibMovable-1.0.git
+  libs/LibAdiEvent-1.0: git://github.com/Adirelle/LibAdiEvent-1.0.git
+		
+optional-dependencies:
+  - libsharedmedia-3-0
+
