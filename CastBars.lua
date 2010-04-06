@@ -224,6 +224,7 @@ local function UpdateVehicleState(self, event, unit)
 	if unit and unit ~= 'player' then return end
 	local newUnit = UnitHasVehicleUI('player') and 'vehicle' or 'player'
 	if newUnit ~= self.unit then
+		Debug("UpdateVehicleState", unit, "self.unit=", self.unit, "newUnit=", newUnit)
 		self.unit = newUnit
 		return PLAYER_ENTERING_WORLD(self, event)
 	end
@@ -238,18 +239,14 @@ local function DisableBlizzardFrame(frame)
 end
 
 local function OnEnable(self)
+	local unit = self.realUnit
+
 	if self.Latency then
 		self:RegisterEvent("UNIT_SPELLCAST_SENT", LatencyStart)
 		self:RegisterEvent("UNIT_SPELLCAST_START", LatencyEnd)
 		self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START", LatencyEnd)
 	end
 	
-	if unit == "player" then			
-		self:RegisterEvent("PLAYER_ENTERING_WORLD", UpdateVehicleState)		
-		self:RegisterEvent("UNIT_ENTERED_VEHICLE", UpdateVehicleState)		
-		self:RegisterEvent("UNIT_EXITED_VEHICLE", UpdateVehicleState)		
-	end
-
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", PLAYER_ENTERING_WORLD)		
 	
 	self:RegisterEvent("UNIT_SPELLCAST_START", UNIT_SPELLCAST_START)
@@ -276,6 +273,12 @@ local function OnEnable(self)
 		self:RegisterEvent("UNIT_PET", UNIT_PET)
 	end
 	
+	if unit == "player" then			
+		self:RegisterEvent("PLAYER_ENTERING_WORLD", UpdateVehicleState)		
+		self:RegisterEvent("UNIT_ENTERED_VEHICLE", UpdateVehicleState)		
+		self:RegisterEvent("UNIT_EXITED_VEHICLE", UpdateVehicleState)				
+		UpdateVehicleState(self, "OnEnable")
+	end
 	
 	if IsLoggedIn() then
 		PLAYER_ENTERING_WORLD(self, 'OnEnable')
@@ -283,6 +286,8 @@ local function OnEnable(self)
 end
 
 local function OnDisable(self)
+	local unit = self.realUnit
+	
 	if self.Latency then
 		self:UnregisterEvent("UNIT_SPELLCAST_SENT", LatencyStart)
 		self:UnregisterEvent("UNIT_SPELLCAST_START", LatencyEnd)
@@ -329,6 +334,7 @@ function InitCastBar(self)
 	local unit = self.unit
 	if not unit then return print('Ignoring castbar, no unit') end
 	AdiEvent.Embed(self)
+	self.realUnit = unit
 	self.OnEnable = OnEnable
 	self.OnDisable = OnDisable
 
