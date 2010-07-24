@@ -193,8 +193,16 @@ local function AddonLoaded(self, _, name)
 		"TOP", player, "BOTTOM", 0, -4
 	)
 	Spawn(
+		SpawnCastBar, 'pet', "Pet casting bar", 200, 15,
+		"BOTTOM", player, "TOP", 0, 10
+	)
+	local target = Spawn(
 		SpawnCastBar, 'target', "Target casting bar", 330, 32, 
 		"TOP", UIParent, "TOP", 0, -220
+	)
+	Spawn(
+		SpawnCastBar, "focus", "Focus casting bar", 250, 20,
+		"TOP", target, "BOTTOM", 0, -10
 	)
 
 	_G.SLASH_ADICASTBAR1 = "/adicastbar"
