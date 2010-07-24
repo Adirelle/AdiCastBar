@@ -18,7 +18,7 @@ local GetTime = GetTime
 local function FadingOut(self)
 	local now = GetTime()
 	local alpha = self.fadeDuration - (now - self.endTime)
-	if alpha > 0 then 
+	if alpha > 0 then
 		self:SetAlpha(math.min(alpha, 1.0))
 	else
 		self:SetScript('OnUpdate', nil)
@@ -28,7 +28,7 @@ end
 
 local strmatch = string.match
 local function FadeOut(self, failed)
-	Debug('FadeOut', failed)	
+	Debug('FadeOut', failed)
 	self.Bar.Spark:Hide()
 	if failed then
 		self.Bar:SetStatusBarColor(unpack(COLORS.INTERRUPTED))
@@ -39,8 +39,8 @@ local function FadeOut(self, failed)
 	end
 	self.endTime = GetTime()
 	self.castId = nil
-	self:SetScript('OnUpdate', FadingOut)	
-end 
+	self:SetScript('OnUpdate', FadingOut)
+end
 
 local function TimerUpdate(self)
 	local now = GetTime()
@@ -69,7 +69,7 @@ local function SetTime(self, startTime, endTime, delayed)
 	else
 		self.delay = startTime - self.startTime
 	end
-	self.endTime = endTime	
+	self.endTime = endTime
 	self.Bar:SetMinMaxValues(0, endTime-startTime)
 end
 
@@ -80,7 +80,7 @@ local function StartCast(self, reversed, color, name, text, texture, startTime, 
 		if delay then
 			startTime = startTime - delay
 			endTime = endTime - delay
-		
+
 			latency:ClearAllPoints()
 			latency:SetPoint(reversed and "LEFT" or "RIGHT", self.Bar)
 			latency:SetWidth(self.Bar:GetWidth() * math.min(delay / (endTime - startTime), 1.0))
@@ -89,20 +89,20 @@ local function StartCast(self, reversed, color, name, text, texture, startTime, 
 			latency:Hide()
 		end
 	end
-	
+
 	self.reversed = reversed
 	self.castId = castId
-	
+
 	self.Bar:SetStatusBarColor(unpack(color))
 	self.Bar.Spark:Show()
-	
+
 	text = name or text
 	if text then
 		self.Text:SetText(text)
 		self.Text:Show()
 	else
 		self.Text:Hide()
-	end 
+	end
 
 	if texture then
 		self.Icon:SetTexture(texture)
@@ -159,7 +159,7 @@ end
 
 local UNIT_SPELLCAST_FAILED = UNIT_SPELLCAST_INTERRUPTED
 local UNIT_SPELLCAST_FAILED_QUIET = UNIT_SPELLCAST_INTERRUPTED
- 
+
 local function UNIT_SPELLCAST_CHANNEL_START(self, event, unit)
 	if unit ~= self.unit then return end
 	local name, _, text, texture, startTime, endTime, _, notInterruptible = UnitChannelInfo(unit)
@@ -171,7 +171,7 @@ local function UNIT_SPELLCAST_CHANNEL_UPDATE(self, event, unit)
 	if unit ~= self.unit or self.castId ~= "CHANNEL" then return end
 	local _, _, _, _, startTime, endTime = UnitChannelInfo(unit)
 	Debug(self, event, unit, startTime, endTime)
-	return SetTime(self, startTime/1000, endTime/1000, true)	
+	return SetTime(self, startTime/1000, endTime/1000, true)
 end
 
 local function UNIT_SPELLCAST_CHANNEL_STOP(self, event, unit)
@@ -210,9 +210,9 @@ do
 		for name, color in pairs(DebuffTypeColor) do
 			COLORS[name] = { color.r, color.g, color.b }
 		end
-		
+
 		Debug('PvP Debuff support using DRData-1.0', minor)
-		
+
 		local function SearchDebuff(unit)
 			local name, texture, dType, duration, endTime, spellId
 			for i = 1, 4000 do
@@ -231,10 +231,10 @@ do
 				return name, texture, dType, duration, endTime, spellId
 			end
 		end
-		
+
 		function UNIT_AURA(self, event, unit)
 			if unit ~= self.unit then return end
-			local name, texture, dType, duration, endTime, spellId = SearchDebuff(unit)			
+			local name, texture, dType, duration, endTime, spellId = SearchDebuff(unit)
 			local currentId = tonumber(tostring(self.castId):match('^AURA(%d+)$'))
 			if spellId then
 				if spellId ~= currentId then
@@ -266,9 +266,9 @@ local function PLAYER_ENTERING_WORLD(self, event)
 end
 
 local function UNIT_PET(self, event, unit)
-	if unit == "player" then 
-		return PLAYER_ENTERING_WORLD(self, event) 
-	end 
+	if unit == "player" then
+		return PLAYER_ENTERING_WORLD(self, event)
+	end
 end
 
 local function LatencyStart(self, event, unit, spell)
@@ -279,7 +279,7 @@ end
 
 local function LatencyEnd(self, event, unit, spell)
 	if unit and unit ~= self.unit then return end
-	local start = self.latencyStart[spell] 
+	local start = self.latencyStart[spell]
 	if start then
 		self.latency[spell] = GetTime() - start
 		self.latencyStart[spell] = nil
@@ -312,18 +312,18 @@ local function OnEnable(self)
 		self:RegisterEvent("UNIT_SPELLCAST_START", LatencyEnd)
 		self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START", LatencyEnd)
 	end
-	
-	self:RegisterEvent("PLAYER_ENTERING_WORLD", PLAYER_ENTERING_WORLD)		
-	
+
+	self:RegisterEvent("PLAYER_ENTERING_WORLD", PLAYER_ENTERING_WORLD)
+
 	self:RegisterEvent("UNIT_SPELLCAST_START", UNIT_SPELLCAST_START)
 	self:RegisterEvent("UNIT_SPELLCAST_DELAYED", UNIT_SPELLCAST_DELAYED)
 	self:RegisterEvent('UNIT_SPELLCAST_INTERRUPTIBLE', UNIT_SPELLCAST_INTERRUPTIBLE)
-	self:RegisterEvent('UNIT_SPELLCAST_NOT_INTERRUPTIBLE', UNIT_SPELLCAST_NOT_INTERRUPTIBLE)	
+	self:RegisterEvent('UNIT_SPELLCAST_NOT_INTERRUPTIBLE', UNIT_SPELLCAST_NOT_INTERRUPTIBLE)
 	self:RegisterEvent("UNIT_SPELLCAST_STOP", UNIT_SPELLCAST_STOP)
 	self:RegisterEvent("UNIT_SPELLCAST_FAILED", UNIT_SPELLCAST_FAILED)
 	self:RegisterEvent("UNIT_SPELLCAST_FAILED_QUIET", UNIT_SPELLCAST_FAILED_QUIET)
 	self:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED", UNIT_SPELLCAST_INTERRUPTED)
-	
+
 	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START", UNIT_SPELLCAST_CHANNEL_START)
 	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_UPDATE", UNIT_SPELLCAST_CHANNEL_UPDATE)
 	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_STOP", UNIT_SPELLCAST_CHANNEL_STOP)
@@ -331,25 +331,25 @@ local function OnEnable(self)
 
 	if unit == "target" then
 		self:RegisterEvent("PLAYER_TARGET_CHANGED", PLAYER_ENTERING_WORLD)
-		
+
 	elseif unit == "focus" then
 		self:RegisterEvent("PLAYER_FOCUS_CHANGED", PLAYER_ENTERING_WORLD)
-		
+
 	elseif unit == "pet" then
 		self:RegisterEvent("UNIT_PET", UNIT_PET)
 	end
-	
-	if unit == "player" then			
-		self:RegisterEvent("PLAYER_ENTERING_WORLD", UpdateVehicleState)		
-		self:RegisterEvent("UNIT_ENTERED_VEHICLE", UpdateVehicleState)		
-		self:RegisterEvent("UNIT_EXITED_VEHICLE", UpdateVehicleState)				
+
+	if unit == "player" then
+		self:RegisterEvent("PLAYER_ENTERING_WORLD", UpdateVehicleState)
+		self:RegisterEvent("UNIT_ENTERED_VEHICLE", UpdateVehicleState)
+		self:RegisterEvent("UNIT_EXITED_VEHICLE", UpdateVehicleState)
 		UpdateVehicleState(self, "OnEnable")
 	end
-	
+
 	if UNIT_AURA then
-		self:RegisterEvent("UNIT_AURA", UNIT_AURA)				
+		self:RegisterEvent("UNIT_AURA", UNIT_AURA)
 	end
-	
+
 	if IsLoggedIn() then
 		PLAYER_ENTERING_WORLD(self, 'OnEnable')
 	end
@@ -357,30 +357,30 @@ end
 
 local function OnDisable(self)
 	local unit = self.realUnit
-	
+
 	if self.Latency then
 		self:UnregisterEvent("UNIT_SPELLCAST_SENT", LatencyStart)
 		self:UnregisterEvent("UNIT_SPELLCAST_START", LatencyEnd)
 		self:UnregisterEvent("UNIT_SPELLCAST_CHANNEL_START", LatencyEnd)
 	end
-	
-	if unit == "player" then			
-		self:UnregisterEvent("PLAYER_ENTERING_WORLD", UpdateVehicleState)		
-		self:UnregisterEvent("UNIT_ENTERED_VEHICLE", UpdateVehicleState)		
-		self:UnregisterEvent("UNIT_EXITED_VEHICLE", UpdateVehicleState)		
+
+	if unit == "player" then
+		self:UnregisterEvent("PLAYER_ENTERING_WORLD", UpdateVehicleState)
+		self:UnregisterEvent("UNIT_ENTERED_VEHICLE", UpdateVehicleState)
+		self:UnregisterEvent("UNIT_EXITED_VEHICLE", UpdateVehicleState)
 	end
 
-	self:UnregisterEvent("PLAYER_ENTERING_WORLD", PLAYER_ENTERING_WORLD)		
-	
+	self:UnregisterEvent("PLAYER_ENTERING_WORLD", PLAYER_ENTERING_WORLD)
+
 	self:UnregisterEvent("UNIT_SPELLCAST_START", UNIT_SPELLCAST_START)
 	self:UnregisterEvent("UNIT_SPELLCAST_DELAYED", UNIT_SPELLCAST_DELAYED)
 	self:UnregisterEvent('UNIT_SPELLCAST_INTERRUPTIBLE', UNIT_SPELLCAST_INTERRUPTIBLE)
-	self:UnregisterEvent('UNIT_SPELLCAST_NOT_INTERRUPTIBLE', UNIT_SPELLCAST_NOT_INTERRUPTIBLE)	
+	self:UnregisterEvent('UNIT_SPELLCAST_NOT_INTERRUPTIBLE', UNIT_SPELLCAST_NOT_INTERRUPTIBLE)
 	self:UnregisterEvent("UNIT_SPELLCAST_STOP", UNIT_SPELLCAST_STOP)
 	self:UnregisterEvent("UNIT_SPELLCAST_FAILED", UNIT_SPELLCAST_FAILED)
 	self:UnregisterEvent("UNIT_SPELLCAST_FAILED_QUIET", UNIT_SPELLCAST_FAILED_QUIET)
 	self:UnregisterEvent("UNIT_SPELLCAST_INTERRUPTED", UNIT_SPELLCAST_INTERRUPTED)
-	
+
 	self:UnregisterEvent("UNIT_SPELLCAST_CHANNEL_START", UNIT_SPELLCAST_CHANNEL_START)
 	self:UnregisterEvent("UNIT_SPELLCAST_CHANNEL_UPDATE", UNIT_SPELLCAST_CHANNEL_UPDATE)
 	self:UnregisterEvent("UNIT_SPELLCAST_CHANNEL_STOP", UNIT_SPELLCAST_CHANNEL_STOP)
@@ -388,18 +388,18 @@ local function OnDisable(self)
 
 	if unit == "target" then
 		self:UnregisterEvent("PLAYER_TARGET_CHANGED", PLAYER_ENTERING_WORLD)
-		
+
 	elseif unit == "focus" then
 		self:UnregisterEvent("PLAYER_FOCUS_CHANGED", PLAYER_ENTERING_WORLD)
-		
+
 	elseif unit == "pet" then
 		self:UnregisterEvent("UNIT_PET", UNIT_PET)
 	end
-	
+
 	if UNIT_AURA then
-		self:UnregisterEvent("UNIT_AURA", UNIT_AURA)				
+		self:UnregisterEvent("UNIT_AURA", UNIT_AURA)
 	end
-		
+
 	self:Hide()
 end
 
@@ -420,12 +420,12 @@ function InitCastBar(self)
 	if unit == "player" then
 		DisableBlizzardFrame(CastingBarFrame)
 	elseif unit == "target" then
-		DisableBlizzardFrame(TargetFrameSpellBar)		
+		DisableBlizzardFrame(TargetFrameSpellBar)
 	elseif unit == "focus" then
-		DisableBlizzardFrame(FocusFrameSpellBar)		
+		DisableBlizzardFrame(FocusFrameSpellBar)
 	elseif unit == "pet" then
 		DisableBlizzardFrame(PetCastingBarFrame)
 	end
-	
+
 	self:Hide()
 end

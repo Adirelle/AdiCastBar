@@ -15,7 +15,7 @@ local BAR_BACKDROP = {
 
 local BORDER_SIZE = 2
 local BORDER_BACKDROP = {
-	edgeFile = [[Interface\Addons\oUF_Adirelle\media\white16x16]], 
+	edgeFile = [[Interface\Addons\oUF_Adirelle\media\white16x16]],
 	edgeSize = BORDER_SIZE,
 }
 
@@ -27,33 +27,33 @@ local LSM_STATUSBAR = "BantoBar"
 
 do
 	function RegisterFont(fs)
-		fs:SetFont(FONT_PATH, FONT_SIZE, FONT_FLAGS)	
+		fs:SetFont(FONT_PATH, FONT_SIZE, FONT_FLAGS)
 		fs:SetShadowColor(0,0,0,0.5)
 		fs:SetShadowOffset(1, -1)
 	end
-	
+
 	local function UpdateTexture(tex)
 		return (tex.SetStatusBarTexture or tex.SetTexture)(tex, BAR_TEXTURE)
 	end
-			
+
 	local lsm = LibStub('LibSharedMedia-3.0', true)
 	if lsm then
 		BAR_TEXTURE = lsm:Fetch("statusbar", LSM_STATUSBAR, true) or BAR_TEXTURE
-		
+
 		local function LibSharedMedia_SetGlobal(tex, event, media, value)
 			if media == "statusbar" then
 				BAR_TEXTURE = lsm:Fetch("statusbar", value)
 				UpdateTexture(tex)
-			end			
+			end
 		end
 
 		function RegisterTexture(tex)
 			UpdateTexture(tex)
 			lsm.RegisterCallback(tex, 'LibSharedMedia_SetGlobal', LibSharedMedia_SetGlobal)
-		end	
+		end
 	else
 		RegisterTexture = UpdateTexture
-	end	
+	end
 end
 
 local function OnBarValuesChange(bar)
@@ -70,13 +70,13 @@ end
 
 local function SpawnCastBar(unit, width, height, withLatency)
 	local self = CreateFrame("Frame", "AdiCastBar_"..unit, UIParent)
-	self.unit = unit	
+	self.unit = unit
 	self:SetWidth(width)
-	self:SetHeight(height)	
+	self:SetHeight(height)
 	self:SetBackdrop(BAR_BACKDROP)
 	self:SetBackdropColor(0, 0, 0, 1)
 	self:SetBackdropBorderColor(0, 0, 0, 0)
-	
+
 	local border = CreateFrame("Frame", nil, self)
 	border:SetWidth(width+BORDER_SIZE*2)
 	border:SetHeight(height+BORDER_SIZE*2)
@@ -92,7 +92,7 @@ local function SpawnCastBar(unit, width, height, withLatency)
 	icon:SetPoint("TOPLEFT")
 	icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)
 	self.Icon = icon
-		
+
 	local bar = CreateFrame("StatusBar", nil, self)
 	RegisterTexture(bar)
 	bar:SetPoint("TOPLEFT", icon , "TOPRIGHT", 2, 0)
@@ -101,7 +101,7 @@ local function SpawnCastBar(unit, width, height, withLatency)
 	bar:SetScript('OnValueChanged', OnBarValuesChange)
 	bar:SetScript('OnShow', OnBarValuesChange)
 	self.Bar = bar
-	
+
 	-- Fix the annoying 3.3 texture tiling bug
 	local texture = bar:GetStatusBarTexture()
 	texture:SetHorizTile(false)
@@ -114,7 +114,7 @@ local function SpawnCastBar(unit, width, height, withLatency)
 		latency:SetHeight(height)
 		self.Latency = latency
 	end
-	
+
 	local timeText = bar:CreateFontString(nil, "OVERLAY")
 	RegisterFont(timeText)
 	timeText:SetPoint("TOPRIGHT", bar, -2, 0)
@@ -136,7 +136,7 @@ local function SpawnCastBar(unit, width, height, withLatency)
 	spark:SetTexture([[Interface\CastingBar\UI-CastingBar-Spark]])
 	spark:SetBlendMode('ADD')
 	spark:SetWidth(20)
-	spark:SetHeight(height*2.2)	
+	spark:SetHeight(height*2.2)
 	bar.Spark = spark
 
 	InitCastBar(self)
@@ -147,17 +147,17 @@ local function SpawnGCDBar(_, width, height)
 	local self = CreateFrame("Frame", "AdiCastBar_GCD", UIParent)
 	self:SetWidth(width)
 	self:SetHeight(height)
-	
+
 	self:SetBackdrop(BAR_BACKDROP)
 	self:SetBackdropColor(0,0,0,1)
-	
+
 	local spark = self:CreateTexture(nil, "OVERLAY")
 	spark:SetTexture([[Interface\CastingBar\UI-CastingBar-Spark]])
 	spark:SetBlendMode('ADD')
 	spark:SetWidth(20)
-	spark:SetHeight(height*2.2)	
+	spark:SetHeight(height*2.2)
 	self.Spark = spark
-	
+
 	InitGCD(self)
 	return self
 end
@@ -167,11 +167,11 @@ local AdiEvent = LibStub('LibAdiEvent-1.0')
 local function AddonLoaded(self, _, name)
 	if name ~= addonName then return end
 	AdiEvent:UnregisterEvent('ADDON_LOADED', AddonLoaded)
-		
+
 	_G.AdiCastBarDB = _G.AdiCastBarDB or {}
 	local db = _G.AdiCastBarDB
 	db.disabled = db.disabled or {}
-	
+
 	local Movable = LibStub('LibMovable-1.0')
 	local function Spawn(spawnFunc, key, label, width, height, from, anchor, to, xOffset, yOffset, ...)
 		Debug('Spawn', 'key=', key, 'label=', label, 'point=', from, anchor, to, xOffset, yOffset, 'spawnArgs=', key, width, height, ...)
@@ -187,10 +187,10 @@ local function AddonLoaded(self, _, name)
 		end
 		return bar
 	end
-	
+
 	local player = Spawn(
-		SpawnCastBar, 'player', "Player casting bar", 250, 20, 
-		"BOTTOM", UIParent, "BOTTOM", 0, 180, 
+		SpawnCastBar, 'player', "Player casting bar", 250, 20,
+		"BOTTOM", UIParent, "BOTTOM", 0, 180,
 		true
 	)
 	Spawn(
@@ -202,7 +202,7 @@ local function AddonLoaded(self, _, name)
 		"BOTTOM", player, "TOP", 0, 10
 	)
 	local target = Spawn(
-		SpawnCastBar, 'target', "Target casting bar", 330, 32, 
+		SpawnCastBar, 'target', "Target casting bar", 330, 32,
 		"TOP", UIParent, "TOP", 0, -220
 	)
 	Spawn(
