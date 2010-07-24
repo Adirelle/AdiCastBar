@@ -186,6 +186,69 @@ local function UNIT_SPELLCAST_CHANNEL_INTERRUPTED(self, event, unit)
 	return FadeOut(self, true)
 end
 
+
+local UNIT_AURA
+do
+	local DRData, minor = LibStub('DRData-1.0', true)
+	if DRData then
+		local UnitDebuff = UnitDebuff
+		local INTERESTING_CATEGORY = {
+			banish = true,
+			charge = true,
+			cheapshot = true,
+			ctrlstun = true,
+			cyclone = true,
+			disorient = true,
+			fear = true,
+			horror = true,
+			mc = true,
+			rndstun = true,
+			scatters = true,
+			silence = true,
+			sleep = true,
+		}
+		for name, color in pairs(DebuffTypeColor) do
+			COLORS[name] = { color.r, color.g, color.b }
+		end
+		
+		Debug('PvP Debuff support using DRData-1.0', minor)
+		
+		local function SearchDebuff(unit)
+			local name, texture, dType, duration, endTime, spellId
+			for i = 1, 4000 do
+				local iName, _, iTexture, _, iDType, iDuration, iEndTime, _, _, _, iSpellId = UnitDebuff(unit, i)
+				if iName then
+					local category = DRData:GetSpellCategory(iSpellId)
+					if category and INTERESTING_CATEGORY[category] and (iDuration or 0) > 0 and iEndTime and (not name or iEndTime > endTime) then
+						name, texture, dType, duration, endTime, spellId = iName, iTexture, iDType, iDuration, iEndTime, iSpellId
+					end
+				else
+					break
+				end
+			end
+			if name then
+				Debug('Found debuff:', name, 'on:', unit)
+				return name, texture, dType, duration, endTime, spellId
+			end
+		end
+		
+		function UNIT_AURA(self, event, unit)
+			if unit ~= self.unit then return end
+			local name, texture, dType, duration, endTime, spellId = SearchDebuff(unit)			
+			local currentId = tonumber(tostring(self.castId):match('^AURA(%d+)$'))
+			if spellId then
+				if spellId ~= currentId then
+					Debug('Showing debuff:', name, 'on:', unit)
+					StartCast(self, true, COLORS[dType or "none"], name, nil, texture, endTime-duration, endTime, false, 'AURA'..spellId)
+				end
+			elseif currentId then
+				Debug('Hiding debuff:', GetSpellInfo(currentId), 'on:', unit)
+				FadeOut(self)
+			end
+		end
+	end
+end
+
 local function PLAYER_ENTERING_WORLD(self, event)
 	local unit = self.unit
 	Debug(self, event, unit, "casting:", UnitCastingInfo(unit), "channeling:", (UnitChannelInfo(unit)))
@@ -195,7 +258,10 @@ local function PLAYER_ENTERING_WORLD(self, event)
 		return UNIT_SPELLCAST_CHANNEL_START(self, event, unit)
 	elseif self:IsShown() then
 		self.castId = nil
-		return self:Hide()
+		self:Hide()
+	end
+	if UNIT_AURA then
+		UNIT_AURA(self, event, unit)
 	end
 end
 
@@ -280,6 +346,10 @@ local function OnEnable(self)
 		UpdateVehicleState(self, "OnEnable")
 	end
 	
+	if UNIT_AURA then
+		self:RegisterEvent("UNIT_AURA", UNIT_AURA)				
+	end
+	
 	if IsLoggedIn() then
 		PLAYER_ENTERING_WORLD(self, 'OnEnable')
 	end
@@ -326,6 +396,10 @@ local function OnDisable(self)
 		self:UnregisterEvent("UNIT_PET", UNIT_PET)
 	end
 	
+	if UNIT_AURA then
+		self:UnregisterEvent("UNIT_AURA", UNIT_AURA)				
+	end
+		
 	self:Hide()
 end
 

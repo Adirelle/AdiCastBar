@@ -7,7 +7,7 @@
 ## X-Date: @project-date-iso@
 
 ## SavedVariables: AdiCastBarDB
-## OptionalDeps: LibAdiEvent-1.0, LibMovable-1.0, LibSharedMedia-3.0, SharedMedia, SharedMedia_MyMedia, tekDebug
+## OptionalDeps: LibAdiEvent-1.0, LibMovable-1.0, LibSharedMedia-3.0, SharedMedia, SharedMedia_MyMedia, tekDebug, DRData-1.0
 
 libs\LibStub\LibStub.lua
 libs\LibAdiEvent-1.0\LibAdiEvent-1.0.lua
