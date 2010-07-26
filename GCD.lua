@@ -12,7 +12,7 @@ local spellId
 if class == 'DEATHKNIGHT' then
 	spellId = 45902 -- Blood Strike
 elseif class == 'DRUID' then
-	spellId = 5185 -- Healing Touch
+	spellId = 50464 -- Healing Touch
 elseif class == 'HUNTER' then
 	spellId = 1978 -- Serpent Sting
 elseif class == 'MAGE' then
