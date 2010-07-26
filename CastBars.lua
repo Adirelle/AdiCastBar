@@ -234,8 +234,11 @@ do
 
 		function UNIT_AURA(self, event, unit)
 			if unit ~= self.unit then return end
-			local name, texture, dType, duration, endTime, spellId = SearchDebuff(unit)
 			local currentId = tonumber(tostring(self.castId):match('^AURA(%d+)$'))
+			if not UnitIsPVP("player") then
+				return not currentId or FadeOut(self)
+			end
+			local name, texture, dType, duration, endTime, spellId = SearchDebuff(unit)
 			if spellId then
 				if spellId ~= currentId then
 					Debug('Showing debuff:', name, 'on:', unit)
