@@ -11,4 +11,5 @@ externals:
 		
 optional-dependencies:
   - libsharedmedia-3-0
+  - drdata-1-0
 

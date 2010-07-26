@@ -56,14 +56,14 @@ local function Update(self, event)
 		self.startTime = start
 		self.duration = duration
 		self.endTime = start + duration
-		
+
 		self:Show()
 	elseif duration == 0 then
 		self:Hide()
 	end
 end
 
-local function OnEnable(self)	
+local function OnEnable(self)
 	self:RegisterEvent('PLAYER_ENTERING_WORLD', Update)
 	self:RegisterEvent('SPELL_UPDATE_COOLDOWN', Update)
 	self:SetScript('OnUpdate', UpdateTimer)
@@ -73,7 +73,7 @@ local function OnEnable(self)
 	end
 end
 
-local function OnDisable(self)	
+local function OnDisable(self)
 	self:UnregisterEvent('PLAYER_ENTERING_WORLD', Update)
 	self:UnregisterEvent('SPELL_UPDATE_COOLDOWN', Update)
 	self:SetScript('OnUpdate', nil)
