@@ -15,7 +15,7 @@ local BAR_BACKDROP = {
 
 local BORDER_SIZE = 2
 local BORDER_BACKDROP = {
-	edgeFile = [[Interface\Addons\oUF_Adirelle\media\white16x16]],
+	edgeFile = [[Interface\Addons\AdiCastBar\media\white16x16]],
 	edgeSize = BORDER_SIZE,
 }
 
