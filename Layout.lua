@@ -108,7 +108,7 @@ local function SpawnCastBar(unit, width, height, withLatency)
 	texture:SetVertTile(false)
 
 	if withLatency then
-		local latency = bar:CreateTexture(nil, "ARTWORK")
+		local latency = bar:CreateTexture(nil, "OVERLAY")
 		latency:SetTexture(0.5, 0, 0, 0.5)
 		latency:SetBlendMode("BLEND")
 		latency:SetHeight(height)
