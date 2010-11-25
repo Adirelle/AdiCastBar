@@ -93,6 +93,19 @@ local function StartCast(self, reversed, color, name, text, texture, startTime, 
 		end
 	end
 
+	if self.Ticks  then
+		self:HideTicks()
+		local num = self.SpellTicks[name]
+		if reversed and num then
+			local offset = self.Bar:GetWidth() / num
+			for i = 1, num do
+				local tick = self:GetTick(i)
+				tick:SetPoint("BOTTOM", self.Bar, "TOPLEFT", offset * (i-1), -3)
+				tick:Show()
+			end
+		end
+	end
+
 	self.reversed = reversed
 	self.castId = castId
 
@@ -189,6 +202,31 @@ local function UNIT_SPELLCAST_CHANNEL_INTERRUPTED(self, event, unit)
 	return FadeOut(self, true)
 end
 
+local function SPELLS_CHANGED(self, event)
+	local data = {
+		-- Warlock
+		[689] = 3, -- Drain Life
+		[5740] = 4, -- Rain of Fire
+		-- [85403] = 15, -- Hellfire
+		-- Druid
+		-- [16914] = 10, -- Hurricane
+		[740] = 4, -- Tranquility
+		-- Priest
+		[15407] = 3, -- Mind Flay
+		[48045] = 5, -- Mind Sear
+		[47540] = 3, -- Penance
+		-- Mage
+		[5143] = function() return 3 + (select(5, GetTalentInfo(1,6)) or 0) end, -- Arcane Missile
+		[10] = 8, -- Blizzard
+	}
+	self.SpellTicks = {}
+	for id, num in pairs(data) do
+		local name = IsSpellKnown(id) and GetSpellInfo(id)
+		if name then
+			self.SpellTicks[name] = num
+		end
+	end
+end
 
 local UNIT_AURA
 do
@@ -357,10 +395,12 @@ local function OnEnable(self)
 		--@debug@
 		self:RegisterEvent('COMBAT_LOG_EVENT_UNFILTERED', COMBAT_LOG_EVENT_UNFILTERED)
 		--@end-debug@
+		self:RegisterEvent("SPELLS_CHANGED", SPELLS_CHANGED)
 		self:RegisterEvent("PLAYER_ENTERING_WORLD", UpdateVehicleState)
 		self:RegisterEvent("UNIT_ENTERED_VEHICLE", UpdateVehicleState)
 		self:RegisterEvent("UNIT_EXITED_VEHICLE", UpdateVehicleState)
 		UpdateVehicleState(self, "OnEnable")
+
 	end
 
 	if UNIT_AURA then
@@ -369,6 +409,9 @@ local function OnEnable(self)
 
 	if IsLoggedIn() then
 		PLAYER_ENTERING_WORLD(self, 'OnEnable')
+		if unit == "player" then
+			SPELLS_CHANGED(self, "OnEnable")
+		end
 	end
 end
 
@@ -388,6 +431,10 @@ local function OnDisable(self)
 		self:UnregisterEvent("PLAYER_ENTERING_WORLD", UpdateVehicleState)
 		self:UnregisterEvent("UNIT_ENTERED_VEHICLE", UpdateVehicleState)
 		self:UnregisterEvent("UNIT_EXITED_VEHICLE", UpdateVehicleState)
+
+		if SPELLS_CHANGED then
+			self:UnregisterEvent("SPELLS_CHANGED", SPELLS_CHANGED)
+		end
 	end
 
 	self:UnregisterEvent("PLAYER_ENTERING_WORLD", PLAYER_ENTERING_WORLD)

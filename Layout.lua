@@ -68,6 +68,24 @@ local function OnBarValuesChange(bar)
 	bar.Spark:SetPoint("CENTER", bar, "LEFT", width * (current-min) / (max-min), 0)
 end
 
+local function GetTick(self, index)
+	local tick = self.Ticks[index]
+	if not tick then
+		tick = self.Bar:CreateTexture(nil, "OVERLAY")
+		tick:SetSize(7, 8)
+		tick:SetTexture([[Interface\BUTTONS\UI-SortArrow]])
+		tick:SetTexCoord(2/16, 8/16, 0, 1)
+		self.Ticks[index] = tick
+	end
+	return tick
+end
+
+local function HideTicks(self)
+	for i, tick in pairs(self.Ticks) do
+		tick:Hide()
+	end
+end
+
 local function SpawnCastBar(unit, width, height, withLatency)
 	local self = CreateFrame("Frame", "AdiCastBar_"..unit, UIParent)
 	self.unit = unit
@@ -113,6 +131,12 @@ local function SpawnCastBar(unit, width, height, withLatency)
 		latency:SetBlendMode("BLEND")
 		latency:SetHeight(height)
 		self.Latency = latency
+	end
+
+	if unit == "player" then
+		self.Ticks = {}
+		self.GetTick = GetTick
+		self.HideTicks = HideTicks
 	end
 
 	local timeText = bar:CreateFontString(nil, "OVERLAY")
