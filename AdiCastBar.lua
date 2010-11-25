@@ -10,11 +10,8 @@ AdiCastBar._G = _G
 setmetatable(AdiCastBar, {__index = _G})
 setfenv(1, AdiCastBar)
 
-if tekDebug then
-	local frame = tekDebug:GetFrame(name)
-	function Debug(...)
-		return frame:AddMessage(string.join(", ", tostringall(...)):gsub("([:=]), ", "%1"))
-	end
+if AdiDebug then
+	Debug = AdiDebug:GetSink(name)
 else
 	function Debug() end
 end

@@ -28,7 +28,7 @@ end
 
 local strmatch = string.match
 local function FadeOut(self, failed)
-	Debug('FadeOut', failed)
+	self:Debug('FadeOut', failed)
 	self.Bar.Spark:Hide()
 	if failed then
 		self.Bar:SetStatusBarColor(unpack(COLORS.INTERRUPTED))
@@ -122,38 +122,38 @@ end
 local function UNIT_SPELLCAST_START(self, event, unit, _, _, castId)
 	if unit ~= self.unit then return end
 	local name, _, text, texture, startTime, endTime, _, castId, notInterruptible = UnitCastingInfo(unit)
-	Debug(self, event, unit, castId, rank, name, text, texture, startTime, endTime, castId, notInterruptible)
+	self:Debug(self, event, unit, castId, rank, name, text, texture, startTime, endTime, castId, notInterruptible)
 	return StartCast(self, false, COLORS.CAST, name, text, texture, startTime/1000, endTime/1000, notInterruptible, castId)
 end
 
 local function UNIT_SPELLCAST_DELAYED(self, event, unit, _, _, castId)
 	if unit ~= self.unit or castId ~= self.castId then return end
 	local _, _, _, _, startTime, endTime = UnitCastingInfo(unit)
-	Debug(self, event, unit, castId, startTime, endTime)
+	self:Debug(self, event, unit, castId, startTime, endTime)
 	return SetTime(self, startTime/1000, endTime/1000, true)
 end
 
 local function UNIT_SPELLCAST_INTERRUPTIBLE(self, event, unit)
 	if unit ~= self.unit or not self.castId then return end
-	Debug(self, event, unit)
+	self:Debug(self, event, unit)
 	return SetNotInterruptible(self, false)
 end
 
 local function UNIT_SPELLCAST_NOT_INTERRUPTIBLE(self, event, unit)
 	if unit ~= self.unit or not self.castId then return end
-	Debug(self, event, unit)
+	self:Debug(self, event, unit)
 	return SetNotInterruptible(self, true)
 end
 
 local function UNIT_SPELLCAST_STOP(self, event, unit, _, _, castId)
 	if unit ~= self.unit or castId ~= self.castId then return end
-	Debug(self, event, unit, castId)
+	self:Debug(self, event, unit, castId)
 	return FadeOut(self)
 end
 
 local function UNIT_SPELLCAST_INTERRUPTED(self, event, unit, _, _, castId)
 	if unit ~= self.unit or castId ~= self.castId then return end
-	Debug(self, event, unit, castId)
+	self:Debug(self, event, unit, castId)
 	return FadeOut(self, true)
 end
 
@@ -163,26 +163,26 @@ local UNIT_SPELLCAST_FAILED_QUIET = UNIT_SPELLCAST_INTERRUPTED
 local function UNIT_SPELLCAST_CHANNEL_START(self, event, unit)
 	if unit ~= self.unit then return end
 	local name, _, text, texture, startTime, endTime, _, notInterruptible = UnitChannelInfo(unit)
-	Debug(self, event, unit, name, text, texture, startTime, endTime, notInterruptible)
+	self:Debug(self, event, unit, name, text, texture, startTime, endTime, notInterruptible)
 	return StartCast(self, true, COLORS.CHANNEL, name, text, texture, startTime/1000, endTime/1000, notInterruptible, "CHANNEL")
 end
 
 local function UNIT_SPELLCAST_CHANNEL_UPDATE(self, event, unit)
 	if unit ~= self.unit or self.castId ~= "CHANNEL" then return end
 	local _, _, _, _, startTime, endTime = UnitChannelInfo(unit)
-	Debug(self, event, unit, startTime, endTime)
+	self:Debug(self, event, unit, startTime, endTime)
 	return SetTime(self, startTime/1000, endTime/1000, true)
 end
 
 local function UNIT_SPELLCAST_CHANNEL_STOP(self, event, unit)
 	if unit ~= self.unit or self.castId ~= "CHANNEL" then return end
-	Debug(self, event, unit)
+	self:Debug(self, event, unit)
 	return FadeOut(self)
 end
 
 local function UNIT_SPELLCAST_CHANNEL_INTERRUPTED(self, event, unit)
 	if unit ~= self.unit or self.castId ~= "CHANNEL" then return end
-	Debug(self, event, unit)
+	self:Debug(self, event, unit)
 	return FadeOut(self, true)
 end
 
@@ -241,11 +241,11 @@ do
 			local name, texture, dType, duration, endTime, spellId = SearchDebuff(unit)
 			if spellId then
 				if spellId ~= currentId then
-					Debug('Showing debuff:', name, 'on:', unit)
+					self:Debug('Showing debuff:', name, 'on:', unit)
 					StartCast(self, true, COLORS[dType or "none"], name, nil, texture, endTime-duration, endTime, false, 'AURA'..spellId)
 				end
 			elseif currentId then
-				Debug('Hiding debuff:', GetSpellInfo(currentId), 'on:', unit)
+				self:Debug('Hiding debuff:', GetSpellInfo(currentId), 'on:', unit)
 				FadeOut(self)
 			end
 		end
@@ -254,7 +254,7 @@ end
 
 local function PLAYER_ENTERING_WORLD(self, event)
 	local unit = self.unit
-	Debug(self, event, unit, "casting:", UnitCastingInfo(unit), "channeling:", (UnitChannelInfo(unit)))
+	self:Debug(self, event, unit, "casting:", UnitCastingInfo(unit), "channeling:", (UnitChannelInfo(unit)))
 	if UnitCastingInfo(unit) then
 		return UNIT_SPELLCAST_START(self, event, unit)
 	elseif UnitChannelInfo(unit) then
@@ -293,7 +293,7 @@ local function UpdateVehicleState(self, event, unit)
 	if unit and unit ~= 'player' then return end
 	local newUnit = UnitHasVehicleUI('player') and 'vehicle' or 'player'
 	if newUnit ~= self.unit then
-		Debug("UpdateVehicleState", unit, "self.unit=", self.unit, "newUnit=", newUnit)
+		self:Debug("UpdateVehicleState", unit, "self.unit=", self.unit, "newUnit=", newUnit)
 		self.unit = newUnit
 		return PLAYER_ENTERING_WORLD(self, event)
 	end
@@ -411,6 +411,9 @@ function InitCastBar(self)
 	local unit = self.unit
 	if not unit then return print('Ignoring castbar, no unit') end
 	AdiEvent.Embed(self)
+	if AdiDebug then
+		AdiDebug:Embed(self, "AdiCastBar")
+	end
 	self.realUnit = unit
 	self.OnEnable = OnEnable
 	self.OnDisable = OnDisable
