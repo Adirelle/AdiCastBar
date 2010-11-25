@@ -29,6 +29,9 @@ end
 local strmatch = string.match
 local function FadeOut(self, failed)
 	self:Debug('FadeOut', failed)
+	if self.Latency then
+		self.Latency:Hide()
+	end
 	self.Bar.Spark:Hide()
 	if failed then
 		self.Bar:SetStatusBarColor(unpack(COLORS.INTERRUPTED))
@@ -75,18 +78,18 @@ end
 
 local function StartCast(self, reversed, color, name, text, texture, startTime, endTime, notInterruptible, castId)
 	local latency = self.Latency
-	if latency then
-		local delay = self.latency[name]
+	if latency and not reversed then
+		local delay
+		if GetCVarBool("reducedLagTolerance") then
+			delay = tonumber(GetCVar("MaxSpellStartRecoveryOffset")) / 1000
+		else
+			delay = self.latency[name]
+		end
 		if delay then
-			startTime = startTime - delay
-			endTime = endTime - delay
-
 			latency:ClearAllPoints()
-			latency:SetPoint(reversed and "LEFT" or "RIGHT", self.Bar)
+			latency:SetPoint("RIGHT", self.Bar)
 			latency:SetWidth(self.Bar:GetWidth() * math.min(delay / (endTime - startTime), 1.0))
 			latency:Show()
-		else
-			latency:Hide()
 		end
 	end
 
