@@ -122,38 +122,38 @@ end
 local function UNIT_SPELLCAST_START(self, event, unit, _, _, castId)
 	if unit ~= self.unit then return end
 	local name, _, text, texture, startTime, endTime, _, castId, notInterruptible = UnitCastingInfo(unit)
-	self:Debug(self, event, unit, castId, rank, name, text, texture, startTime, endTime, castId, notInterruptible)
+	self:Debug(event, unit, castId, rank, name, text, texture, startTime, endTime, castId, notInterruptible)
 	return StartCast(self, false, COLORS.CAST, name, text, texture, startTime/1000, endTime/1000, notInterruptible, castId)
 end
 
 local function UNIT_SPELLCAST_DELAYED(self, event, unit, _, _, castId)
 	if unit ~= self.unit or castId ~= self.castId then return end
 	local _, _, _, _, startTime, endTime = UnitCastingInfo(unit)
-	self:Debug(self, event, unit, castId, startTime, endTime)
+	self:Debug(event, unit, castId, startTime, endTime)
 	return SetTime(self, startTime/1000, endTime/1000, true)
 end
 
 local function UNIT_SPELLCAST_INTERRUPTIBLE(self, event, unit)
 	if unit ~= self.unit or not self.castId then return end
-	self:Debug(self, event, unit)
+	self:Debug(event, unit)
 	return SetNotInterruptible(self, false)
 end
 
 local function UNIT_SPELLCAST_NOT_INTERRUPTIBLE(self, event, unit)
 	if unit ~= self.unit or not self.castId then return end
-	self:Debug(self, event, unit)
+	self:Debug(event, unit)
 	return SetNotInterruptible(self, true)
 end
 
 local function UNIT_SPELLCAST_STOP(self, event, unit, _, _, castId)
 	if unit ~= self.unit or castId ~= self.castId then return end
-	self:Debug(self, event, unit, castId)
+	self:Debug(event, unit, castId)
 	return FadeOut(self)
 end
 
 local function UNIT_SPELLCAST_INTERRUPTED(self, event, unit, _, _, castId)
 	if unit ~= self.unit or castId ~= self.castId then return end
-	self:Debug(self, event, unit, castId)
+	self:Debug(event, unit, castId)
 	return FadeOut(self, true)
 end
 
@@ -163,26 +163,26 @@ local UNIT_SPELLCAST_FAILED_QUIET = UNIT_SPELLCAST_INTERRUPTED
 local function UNIT_SPELLCAST_CHANNEL_START(self, event, unit)
 	if unit ~= self.unit then return end
 	local name, _, text, texture, startTime, endTime, _, notInterruptible = UnitChannelInfo(unit)
-	self:Debug(self, event, unit, name, text, texture, startTime, endTime, notInterruptible)
+	self:Debug(event, unit, name, text, texture, startTime, endTime, notInterruptible)
 	return StartCast(self, true, COLORS.CHANNEL, name, text, texture, startTime/1000, endTime/1000, notInterruptible, "CHANNEL")
 end
 
 local function UNIT_SPELLCAST_CHANNEL_UPDATE(self, event, unit)
 	if unit ~= self.unit or self.castId ~= "CHANNEL" then return end
 	local _, _, _, _, startTime, endTime = UnitChannelInfo(unit)
-	self:Debug(self, event, unit, startTime, endTime)
+	self:Debug(event, unit, startTime, endTime)
 	return SetTime(self, startTime/1000, endTime/1000, true)
 end
 
 local function UNIT_SPELLCAST_CHANNEL_STOP(self, event, unit)
 	if unit ~= self.unit or self.castId ~= "CHANNEL" then return end
-	self:Debug(self, event, unit)
+	self:Debug(event, unit)
 	return FadeOut(self)
 end
 
 local function UNIT_SPELLCAST_CHANNEL_INTERRUPTED(self, event, unit)
 	if unit ~= self.unit or self.castId ~= "CHANNEL" then return end
-	self:Debug(self, event, unit)
+	self:Debug(event, unit)
 	return FadeOut(self, true)
 end
 
@@ -254,7 +254,7 @@ end
 
 local function PLAYER_ENTERING_WORLD(self, event)
 	local unit = self.unit
-	self:Debug(self, event, unit, "casting:", UnitCastingInfo(unit), "channeling:", (UnitChannelInfo(unit)))
+	self:Debug(event, unit, "casting:", UnitCastingInfo(unit), "channeling:", (UnitChannelInfo(unit)))
 	if UnitCastingInfo(unit) then
 		return UNIT_SPELLCAST_START(self, event, unit)
 	elseif UnitChannelInfo(unit) then
@@ -298,6 +298,14 @@ local function UpdateVehicleState(self, event, unit)
 		return PLAYER_ENTERING_WORLD(self, event)
 	end
 end
+
+--@debug@
+local function COMBAT_LOG_EVENT_UNFILTERED(self, _, timestamp, event, sourceGUID, sourceName, sourceFlags, destGUID, destName, destFlags, ...)
+	if UnitGUID("player") == sourceGUID and UnitGUID("target") == destGUID and event == "SPELL_PERIODIC_DAMAGE" then
+		self:Debug(date('%X', time()), '|', event, '|', sourceName, destName, '|', ...)
+	end
+end
+--@end-debug@
 
 local function noop() end
 local function DisableBlizzardFrame(frame)
@@ -343,6 +351,9 @@ local function OnEnable(self)
 	end
 
 	if unit == "player" then
+		--@debug@
+		self:RegisterEvent('COMBAT_LOG_EVENT_UNFILTERED', COMBAT_LOG_EVENT_UNFILTERED)
+		--@end-debug@
 		self:RegisterEvent("PLAYER_ENTERING_WORLD", UpdateVehicleState)
 		self:RegisterEvent("UNIT_ENTERED_VEHICLE", UpdateVehicleState)
 		self:RegisterEvent("UNIT_EXITED_VEHICLE", UpdateVehicleState)
@@ -368,6 +379,9 @@ local function OnDisable(self)
 	end
 
 	if unit == "player" then
+		--@debug@
+		self:UnregisterEvent('COMBAT_LOG_EVENT_UNFILTERED', COMBAT_LOG_EVENT_UNFILTERED)
+		--@end-debug@
 		self:UnregisterEvent("PLAYER_ENTERING_WORLD", UpdateVehicleState)
 		self:UnregisterEvent("UNIT_ENTERED_VEHICLE", UpdateVehicleState)
 		self:UnregisterEvent("UNIT_EXITED_VEHICLE", UpdateVehicleState)
