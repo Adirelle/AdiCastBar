@@ -428,9 +428,15 @@ function InitCastBar(self)
 	local unit = self.unit
 	if not unit then return print('Ignoring castbar, no unit') end
 	AdiEvent.Embed(self)
+	--@debug@
 	if AdiDebug then
 		AdiDebug:Embed(self, "AdiCastBar")
+	else
+	--@end-debug@
+		self.Debug = Debug
+	--@debug@
 	end
+	--@end-debug@
 	self.realUnit = unit
 	self.OnEnable = OnEnable
 	self.OnDisable = OnDisable
