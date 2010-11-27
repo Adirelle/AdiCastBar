@@ -93,7 +93,7 @@ local function StartCast(self, reversed, color, name, text, texture, startTime, 
 		end
 	end
 
-	if self.Ticks  then
+	if self.Ticks and self.SpellTicks then
 		self:HideTicks()
 		local num = self.SpellTicks[name]
 		if reversed and num then
@@ -428,13 +428,10 @@ local function OnDisable(self)
 		--@debug@
 		self:UnregisterEvent('COMBAT_LOG_EVENT_UNFILTERED', COMBAT_LOG_EVENT_UNFILTERED)
 		--@end-debug@
+		self:UnregisterEvent("SPELLS_CHANGED", SPELLS_CHANGED)
 		self:UnregisterEvent("PLAYER_ENTERING_WORLD", UpdateVehicleState)
 		self:UnregisterEvent("UNIT_ENTERED_VEHICLE", UpdateVehicleState)
 		self:UnregisterEvent("UNIT_EXITED_VEHICLE", UpdateVehicleState)
-
-		if SPELLS_CHANGED then
-			self:UnregisterEvent("SPELLS_CHANGED", SPELLS_CHANGED)
-		end
 	end
 
 	self:UnregisterEvent("PLAYER_ENTERING_WORLD", PLAYER_ENTERING_WORLD)
