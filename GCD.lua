@@ -18,7 +18,7 @@ elseif class == 'HUNTER' then
 elseif class == 'MAGE' then
 	spellId = 133 -- Fireball
 elseif class == 'PALADIN' then
-	spellId = 66922 -- Flash of Light
+	spellId = 19750 -- Flash of Light
 elseif class == 'PRIEST' then
 	spellId = 2050 -- Lesser Heal
 elseif class == 'ROGUE' then
