@@ -120,11 +120,6 @@ local function SpawnCastBar(unit, width, height, withLatency)
 	bar:SetScript('OnShow', OnBarValuesChange)
 	self.Bar = bar
 
-	-- Fix the annoying 3.3 texture tiling bug
-	local texture = bar:GetStatusBarTexture()
-	texture:SetHorizTile(false)
-	texture:SetVertTile(false)
-
 	if withLatency then
 		local latency = bar:CreateTexture(nil, "OVERLAY")
 		latency:SetTexture(0.5, 0, 0, 0.5)
