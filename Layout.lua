@@ -111,6 +111,14 @@ local function SpawnCastBar(unit, width, height, withLatency)
 	icon:SetTexCoord(5/64, 59/64, 5/64, 59/64)
 	self.Icon = icon
 
+	local shield = border:CreateTexture(nil, "OVERLAY")
+	local shieldSize = height*64/18
+	shield:SetWidth(shieldSize)
+	shield:SetHeight(shieldSize)
+	shield:SetPoint("TOPLEFT", icon, "TOPLEFT", -11/64*shieldSize, 22/64*shieldSize)
+	shield:SetTexture([[Interface\CastingBar\UI-CastingBar-Arena-Shield]])
+	self.Shield = shield
+	
 	local bar = CreateFrame("StatusBar", nil, self)
 	RegisterTexture(bar)
 	bar:SetPoint("TOPLEFT", icon , "TOPRIGHT", 2, 0)

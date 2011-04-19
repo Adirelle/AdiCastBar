@@ -60,8 +60,10 @@ end
 local function SetNotInterruptible(self, notInterruptible)
 	if notInterruptible then
 		self.Border:SetBackdropBorderColor(0.5, 0.5, 0.5, 1)
+		self.Shield:Show()
 	else
 		self.Border:SetBackdropBorderColor(0, 0, 0, 1)
+		self.Shield:Hide()
 	end
 end
 
