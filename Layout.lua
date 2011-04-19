@@ -121,11 +121,12 @@ local function SpawnCastBar(unit, width, height, withLatency)
 	
 	local bar = CreateFrame("StatusBar", nil, self)
 	RegisterTexture(bar)
-	bar:SetPoint("TOPLEFT", icon , "TOPRIGHT", 2, 0)
+	bar:SetPoint("TOPLEFT", icon, "TOPRIGHT", 2, 0)
 	bar:SetPoint("BOTTOMRIGHT", self)
 	bar:SetScript('OnMinMaxChanged', OnBarValuesChange)
 	bar:SetScript('OnValueChanged', OnBarValuesChange)
 	bar:SetScript('OnShow', OnBarValuesChange)
+	bar:SetFrameLevel(border:GetFrameLevel()+1)
 	self.Bar = bar
 
 	if withLatency then
