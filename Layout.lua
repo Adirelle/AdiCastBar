@@ -108,7 +108,7 @@ local function SpawnCastBar(unit, width, height, withLatency)
 	icon:SetWidth(height)
 	icon:SetHeight(height)
 	icon:SetPoint("TOPLEFT")
-	icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)
+	icon:SetTexCoord(5/64, 59/64, 5/64, 59/64)
 	self.Icon = icon
 
 	local bar = CreateFrame("StatusBar", nil, self)
