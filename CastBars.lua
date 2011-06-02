@@ -98,6 +98,9 @@ local function StartCast(self, reversed, color, name, text, texture, startTime, 
 	if self.Ticks and self.SpellTicks then
 		self:HideTicks()
 		local num = self.SpellTicks[name]
+		if type(num) == "function" then
+			num = num()
+		end
 		if reversed and num then
 			local offset = self.Bar:GetWidth() / num
 			for i = 1, num do
