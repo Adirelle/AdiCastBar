@@ -345,14 +345,6 @@ local function UpdateVehicleState(self, event, unit)
 	end
 end
 
---@debug@
-local function COMBAT_LOG_EVENT_UNFILTERED(self, _, timestamp, event, sourceGUID, sourceName, sourceFlags, destGUID, destName, destFlags, ...)
-	if UnitGUID("player") == sourceGUID and UnitGUID("target") == destGUID and event == "SPELL_PERIODIC_DAMAGE" then
-		self:Debug(date('%X', time()), '|', event, '|', sourceName, destName, '|', ...)
-	end
-end
---@end-debug@
-
 local function noop() end
 local function DisableBlizzardFrame(frame)
 	frame.RegisterEvent = noop
@@ -397,9 +389,6 @@ local function OnEnable(self)
 	end
 
 	if unit == "player" then
-		--@debug@
-		self:RegisterEvent('COMBAT_LOG_EVENT_UNFILTERED', COMBAT_LOG_EVENT_UNFILTERED)
-		--@end-debug@
 		self:RegisterEvent("SPELLS_CHANGED", SPELLS_CHANGED)
 		self:RegisterEvent("PLAYER_ENTERING_WORLD", UpdateVehicleState)
 		self:RegisterEvent("UNIT_ENTERED_VEHICLE", UpdateVehicleState)
@@ -430,9 +419,6 @@ local function OnDisable(self)
 	end
 
 	if unit == "player" then
-		--@debug@
-		self:UnregisterEvent('COMBAT_LOG_EVENT_UNFILTERED', COMBAT_LOG_EVENT_UNFILTERED)
-		--@end-debug@
 		self:UnregisterEvent("SPELLS_CHANGED", SPELLS_CHANGED)
 		self:UnregisterEvent("PLAYER_ENTERING_WORLD", UpdateVehicleState)
 		self:UnregisterEvent("UNIT_ENTERED_VEHICLE", UpdateVehicleState)
