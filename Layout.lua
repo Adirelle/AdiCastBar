@@ -1,6 +1,6 @@
 --[[
-AdiCastBar - customized unit cast bars
-(c) 2009 Adirelle (adirelle@tagada-team.net)
+AdiCast Bar - customized unit cast bars
+(c) 2009-2012 Adirelle (adirelle@gmail.com)
 All rights reserved.
 --]]
 
