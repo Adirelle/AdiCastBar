@@ -66,9 +66,9 @@ local function OnBarValuesChange(bar)
 	local current, width, min, max = bar:GetValue(), bar:GetWidth(), bar:GetMinMaxValues()
 	local delay = bar:GetParent().delay
 	if delay then
-		bar.TimeText:SetFormattedText("|cffff0000%+.1f|r %.1f/%.1f", delay, current-min, max-min)
+		bar.TimeText:SetFormattedText("|cffff0000%+.2f|r %.2f/%.2f", delay, current-min, max-min)
 	else
-		bar.TimeText:SetFormattedText("%.1f / %.1f", current-min, max-min)
+		bar.TimeText:SetFormattedText("%.2f / %.2f", current-min, max-min)
 	end
 	bar.Spark:SetPoint("CENTER", bar, "LEFT", width * (current-min) / (max-min), 0)
 end
