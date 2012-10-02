@@ -5,14 +5,9 @@ All rights reserved.
 --]]
 
 local name, AdiCastBar = ...
-_G.AdiCastBar = AdiCastBar
-AdiCastBar._G = _G
-setmetatable(AdiCastBar, {__index = _G})
-setfenv(1, AdiCastBar)
 
-if AdiDebug then
-	Debug = AdiDebug:GetSink(name)
+if _G.AdiDebug then
+	AdiCastBar.Debug = _G.AdiDebug:GetSink(name)
 else
-	function Debug() end
+	function AdiCastBar.Debug() end
 end
-

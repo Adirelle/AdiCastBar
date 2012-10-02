@@ -4,8 +4,15 @@ AdiCastBar - customized unit cast bars
 All rights reserved.
 --]]
 
-local _, AdiCastBar = ...
-setfenv(1, AdiCastBar)
+local _, addon = ...
+
+local _G = _G
+local GetSpellCooldown = _G.GetSpellCooldown
+local GetSpellInfo = _G.GetSpellInfo
+local GetTime = _G.GetTime
+local IsLoggedIn = _G.IsLoggedIn
+local print = _G.print
+local UnitClass = _G.UnitClass
 
 local _, class = UnitClass('player')
 local spellId
@@ -33,7 +40,7 @@ end
 
 if not spellId then
 	print('AdiCastBar: no spell to test GCD for', class)
-	function EnableCastBar() end
+	function addon.EnableCastBar() end
 	return
 end
 
@@ -81,7 +88,7 @@ local function OnDisable(self)
 end
 
 local AdiEvent = LibStub('LibAdiEvent-1.0')
-function InitGCD(self)
+function addon.InitGCD(self)
 	AdiEvent.Embed(self)
 	self.OnEnable = OnEnable
 	self.OnDisable = OnDisable

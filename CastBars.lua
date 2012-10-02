@@ -4,8 +4,33 @@ AdiCastBar - customized unit cast bars
 All rights reserved.
 --]]
 
-local _, AdiCastBar = ...
-setfenv(1, AdiCastBar)
+local _, addon = ...
+
+local _G = _G
+local CastingBarFrame = _G.CastingBarFrame
+local DebuffTypeColor = _G.DebuffTypeColor
+local FocusFrameSpellBar = _G.FocusFrameSpellBar
+local GetCVar = _G.GetCVar
+local GetCVarBool = _G.GetCVarBool
+local GetSpellInfo = _G.GetSpellInfo
+local GetTalentInfo = _G.GetTalentInfo
+local GetTime = _G.GetTime
+local IsLoggedIn = _G.IsLoggedIn
+local IsSpellKnown = _G.IsSpellKnown
+local min = _G.min
+local pairs = _G.pairs
+local PetCastingBarFrame = _G.PetCastingBarFrame
+local print = _G.print
+local select = _G.select
+local tonumber = _G.tonumber
+local tostring = _G.tostring
+local type = _G.type
+local UnitCastingInfo = _G.UnitCastingInfo
+local UnitChannelInfo = _G.UnitChannelInfo
+local UnitDebuff = _G.UnitDebuff
+local UnitHasVehicleUI = _G.UnitHasVehicleUI
+local UnitIsPVP = _G.UnitIsPVP
+local unpack = _G.unpack
 
 local COLORS = {
 	CAST = { 1.0, 0.7, 0.0 },
@@ -19,14 +44,13 @@ local function FadingOut(self)
 	local now = GetTime()
 	local alpha = self.fadeDuration - (now - self.endTime)
 	if alpha > 0 then
-		self:SetAlpha(math.min(alpha, 1.0))
+		self:SetAlpha(min(alpha, 1.0))
 	else
 		self:SetScript('OnUpdate', nil)
 		self:Hide()
 	end
 end
 
-local strmatch = string.match
 local function FadeOut(self, failed)
 	self:Debug('FadeOut', failed)
 	if self.Latency then
@@ -90,7 +114,7 @@ local function StartCast(self, reversed, color, name, text, texture, startTime, 
 		if delay then
 			latency:ClearAllPoints()
 			latency:SetPoint("RIGHT", self.Bar)
-			latency:SetWidth(self.Bar:GetWidth() * math.min(delay / (endTime - startTime), 1.0))
+			latency:SetWidth(self.Bar:GetWidth() * min(delay / (endTime - startTime), 1.0))
 			latency:Show()
 		end
 	end
@@ -142,7 +166,7 @@ end
 
 local function UNIT_SPELLCAST_START(self, event, unit, _, _, castId)
 	if unit ~= self.unit then return end
-	local name, _, text, texture, startTime, endTime, _, castId, notInterruptible = UnitCastingInfo(unit)
+	local name, rank, text, texture, startTime, endTime, _, castId, notInterruptible = UnitCastingInfo(unit)
 	self:Debug(event, unit, castId, rank, name, text, texture, startTime, endTime, castId, notInterruptible)
 	return StartCast(self, false, COLORS.CAST, name, text, texture, startTime/1000, endTime/1000, notInterruptible, castId)
 end
@@ -257,7 +281,7 @@ do
 			COLORS[name] = { color.r, color.g, color.b }
 		end
 
-		Debug('PvP Debuff support using DRData-1.0', minor)
+		addon.Debug('PvP Debuff support using DRData-1.0', minor)
 
 		local function SearchDebuff(unit)
 			local name, texture, dType, duration, endTime, spellId
@@ -273,7 +297,7 @@ do
 				end
 			end
 			if name then
-				Debug('Found debuff:', name, 'on:', unit)
+				addon.Debug('Found debuff:', name, 'on:', unit)
 				return name, texture, dType, duration, endTime, spellId
 			end
 		end
@@ -459,7 +483,7 @@ local function OnDisable(self)
 end
 
 local AdiEvent = LibStub('LibAdiEvent-1.0')
-function InitCastBar(self)
+function addon.InitCastBar(self)
 	local unit = self.unit
 	if not unit then return print('Ignoring castbar, no unit') end
 	AdiEvent.Embed(self)

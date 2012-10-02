@@ -4,8 +4,13 @@ AdiCast Bar - customized unit cast bars
 All rights reserved.
 --]]
 
-local addonName, AdiCastBar = ...
-setfenv(1, AdiCastBar)
+local addonName, addon = ...
+
+local _G = _G
+local CreateFrame = _G.CreateFrame
+local pairs = _G.pairs
+local SlashCmdList = _G.SlashCmdList
+local UIParent = _G.UIParent
 
 local BAR_BACKDROP = {
 	bgFile = [[Interface\Tooltips\UI-Tooltip-Background]],
@@ -167,7 +172,7 @@ local function SpawnCastBar(unit, width, height, withLatency)
 	spark:SetHeight(height*2.2)
 	bar.Spark = spark
 
-	InitCastBar(self)
+	addon.InitCastBar(self)
 	return self
 end
 
@@ -186,7 +191,7 @@ local function SpawnGCDBar(_, width, height)
 	spark:SetHeight(height*2.2)
 	self.Spark = spark
 
-	InitGCD(self)
+	addon.InitGCD(self)
 	return self
 end
 
@@ -202,7 +207,7 @@ local function AddonLoaded(self, _, name)
 
 	local Movable = LibStub('LibMovable-1.0')
 	local function Spawn(spawnFunc, key, label, width, height, from, anchor, to, xOffset, yOffset, ...)
-		Debug('Spawn', 'key=', key, 'label=', label, 'point=', from, anchor, to, xOffset, yOffset, 'spawnArgs=', key, width, height, ...)
+		addon.Debug('Spawn', 'key=', key, 'label=', label, 'point=', from, anchor, to, xOffset, yOffset, 'spawnArgs=', key, width, height, ...)
 		local bar = spawnFunc(key, width, height, ...)
 		bar:SetPoint(from, anchor, to, xOffset, yOffset)
 		bar.LM10_Enable = function(self) db.disabled[key] = nil self:OnEnable() end
