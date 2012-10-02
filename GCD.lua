@@ -36,6 +36,8 @@ elseif class == 'WARLOCK' then
 	spellId = 348 -- Immolate
 elseif class == 'WARRIOR' then
 	spellId = 6673 -- Battle Shout
+elseif class == 'MONK' then
+	spellId = 100787 -- Tiger Palm
 end
 
 if not spellId then
