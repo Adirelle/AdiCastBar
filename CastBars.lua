@@ -492,7 +492,7 @@ function addon.InitCastBar(self)
 		AdiDebug:Embed(self, "AdiCastBar")
 	else
 	--@end-debug@
-		self.Debug = Debug
+		self.Debug = addon.Debug
 	--@debug@
 	end
 	--@end-debug@
