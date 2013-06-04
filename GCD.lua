@@ -27,7 +27,7 @@ elseif class == 'MAGE' then
 elseif class == 'PALADIN' then
 	spellId = 19750 -- Flash of Light
 elseif class == 'PRIEST' then
-	spellId = 2050 -- Lesser Heal
+	spellId = 2061 -- Flash Heal
 elseif class == 'ROGUE' then
 	spellId = 1752 -- Sinister Strike
 elseif class == 'SHAMAN' then
