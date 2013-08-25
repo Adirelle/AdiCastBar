@@ -245,7 +245,7 @@ local function SPELLS_CHANGED(self, event)
 		[48045] = 5, -- Mind Sear
 		[47540] = 3, -- Penance
 		-- Mage
-		[5143] = function() return 3 + (select(5, GetTalentInfo(1,6)) or 0) end, -- Arcane Missile
+		[5143] = 5, -- Arcane Missile
 		[10] = 8, -- Blizzard
 	}
 	self.SpellTicks = {}
