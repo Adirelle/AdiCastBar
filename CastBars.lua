@@ -237,9 +237,12 @@ local function SPELLS_CHANGED(self, event)
 		[689] = 3, -- Drain Life
 		[5740] = 4, -- Rain of Fire
 		-- [85403] = 15, -- Hellfire
+		[103103] = 4, -- Malefic Grasp
 		-- Druid
-		-- [16914] = 10, -- Hurricane
+		[16914] = 10, -- Hurricane
 		[740] = 4, -- Tranquility
+		[106996] = 10, -- Astral Storm
+		[127663] = 4, -- Astral Communion
 		-- Priest
 		[15407] = 3, -- Mind Flay
 		[48045] = 5, -- Mind Sear
@@ -250,7 +253,7 @@ local function SPELLS_CHANGED(self, event)
 	}
 	self.SpellTicks = {}
 	for id, num in pairs(data) do
-		local name = IsSpellKnown(id) and GetSpellInfo(id)
+		local name = GetSpellInfo(id)
 		if name then
 			self.SpellTicks[name] = num
 		end
