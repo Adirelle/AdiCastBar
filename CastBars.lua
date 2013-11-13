@@ -40,7 +40,7 @@ local COLORS = {
 
 local GetTime = GetTime
 
-local barProto = setmetatable({ Debug = addon.Debug }, addon.frameMeta)
+local barProto = setmetatable({}, addon.abstractMeta)
 local barMeta = { __index = barProto }
 addon.castBarProto = barProto
 
@@ -440,14 +440,16 @@ function barProto:OnDisable()
 	self:Hide()
 end
 
-function barProto:Initialize(unit)
-	if self.Latency then
-		self.latency = {}
-		self.latencyStart = {}
-	end
+function addon.SpawnCastBar(unit, width, height, from, anchor, to, xOffset, yOffset)
+	local bar = setmetatable(CreateFrame("Frame", "AdiCastBar_"..unit, UIParent), barMeta)
 
-	local unit = self.unit
+	bar.unit, bar.realUnit = unit, unit
+
+	local withLatency = false
 	if unit == "player" then
+		withLatency = true
+		bar.latency = {}
+		bar.latencyStart = {}
 		DisableBlizzardFrame(CastingBarFrame)
 	elseif unit == "target" then
 		DisableBlizzardFrame(TargetFrameSpellBar)
@@ -456,13 +458,6 @@ function barProto:Initialize(unit)
 	elseif unit == "pet" then
 		DisableBlizzardFrame(PetCastingBarFrame)
 	end
-end
 
-function addon.SpawnCastBar(unit, width, height, withLatency)
-	local bar = setmetatable(CreateFrame("Frame", "AdiCastBar_"..unit, UIParent), barMeta)
-	bar:SetScript('OnEvent', addon.OnEvent)
-	bar.unit, bar.realUnit = unit, unit
-	bar:InitializeWidget(width, height, withLatency)
-	bar:Initialize()
-	return bar
+	return bar:Initialize(unit, width, height, unit.." casting bar", from, anchor, to, xOffset, yOffset, withLatency)
 end

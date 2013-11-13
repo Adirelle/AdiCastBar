@@ -92,7 +92,6 @@ function addon.castBarProto:HideTicks()
 end
 
 function addon.castBarProto:InitializeWidget(width, height, withLatency)
-	self:SetSize(width, height)
 	self:SetBackdrop(BAR_BACKDROP)
 	self:SetBackdropColor(0, 0, 0, 1)
 	self:SetBackdropBorderColor(0, 0, 0, 0)
@@ -120,7 +119,7 @@ function addon.castBarProto:InitializeWidget(width, height, withLatency)
 	shield:SetPoint("TOPLEFT", icon, "TOPLEFT", -11/64*shieldSize, 22/64*shieldSize)
 	shield:SetTexture([[Interface\CastingBar\UI-CastingBar-Arena-Shield]])
 	self.Shield = shield
-	
+
 	local bar = CreateFrame("StatusBar", nil, self)
 	RegisterTexture(bar)
 	bar:SetPoint("TOPLEFT", icon, "TOPRIGHT", 2, 0)
@@ -169,8 +168,6 @@ function addon.castBarProto:InitializeWidget(width, height, withLatency)
 end
 
 function addon.gcdProto:InitializeWidget(width, height)
-	self:SetSize(width, height)
-
 	self:SetBackdrop(BAR_BACKDROP)
 	self:SetBackdropColor(0,0,0,1)
 
@@ -182,63 +179,11 @@ function addon.gcdProto:InitializeWidget(width, height)
 	self.Spark = spark
 end
 
-function addon:OnLoad()
-	_G.AdiCastBarDB = _G.AdiCastBarDB or {}
-	local db = _G.AdiCastBarDB
-	db.disabled = db.disabled or {}
+function addon:SpawnAllBars()
+	local player = self:SpawnCastBar('player', 250, 20, "BOTTOM", UIParent, "BOTTOM", 0, 180)
+	self:SpawnGCDBar(250, 4, "TOP", player, "BOTTOM", 0, -4)
+	self:SpawnCastBar('pet', 200, 15, "BOTTOM", player, "TOP", 0, 10)
 
-	local Movable = LibStub('LibMovable-1.0')
-	local function Spawn(spawnFunc, key, label, width, height, from, anchor, to, xOffset, yOffset, ...)
-		self:Debug('Spawn', 'key=', key, 'label=', label, 'point=', from, anchor, to, xOffset, yOffset, 'spawnArgs=', key, width, height, ...)
-		local bar = self[spawnFunc](key, width, height, ...)
-		bar:SetPoint(from, anchor, to, xOffset, yOffset)
-		bar.LM10_Enable = function(self) db.disabled[key] = nil self:OnEnable() end
-		bar.LM10_Disable = function(self) db.disabled[key] = true self:OnDisable() end
-		bar.LM10_IsEnabled = function() return not db.disabled[key] end
-		db[key] = db[key] or {}
-		Movable.RegisterMovable(addonName, bar, db[key], label)
-		if not db.disabled[key] then
-			bar:OnEnable()
-		end
-		return bar
-	end
-
-	local player = Spawn(
-		'SpawnCastBar', 'player', "Player casting bar", 250, 20,
-		"BOTTOM", UIParent, "BOTTOM", 0, 180,
-		true
-	)
-	Spawn(
-		'SpawnGCDBar', 'gcd', "Player global cooldown", 250, 4,
-		"TOP", player, "BOTTOM", 0, -4
-	)
-	Spawn(
-		'SpawnCastBar', 'pet', "Pet casting bar", 200, 15,
-		"BOTTOM", player, "TOP", 0, 10
-	)
-	local target = Spawn(
-		'SpawnCastBar', 'target', "Target casting bar", 330, 32,
-		"TOP", UIParent, "TOP", 0, -220
-	)
-	Spawn(
-		'SpawnCastBar', "focus", "Focus casting bar", 250, 20,
-		"TOP", target, "BOTTOM", 0, -10
-	)
-
-	_G.SLASH_ADICASTBAR1 = "/adicastbar"
-	_G.SLASH_ADICASTBAR2 = "/acb"
-	SlashCmdList.ADICASTBAR = function()
-		if Movable.IsLocked(addonName) then
-			Movable.Unlock(addonName)
-		else
-			Movable.Lock(addonName)
-		end
-	end
-end
-
-addon.eventFrame:RegisterEvent('ADDON_LOADED')
-function addon.eventFrame:ADDON_LOADED(_, name)
-	if name ~= addonName then return end
-	self:UnregisterEvent('ADDON_LOADED')
-	return addon:OnLoad()
+	local target = self:SpawnCastBar('target', 330, 32, "TOP", UIParent, "TOP", 0, -220)
+	self:SpawnCastBar('focus', 250, 20, "TOP", target, "BOTTOM", 0, -10)
 end

@@ -45,7 +45,7 @@ local spellName = GetSpellInfo(spellId)
 local GetTime = GetTime
 local GetSpellCooldown = GetSpellCooldown
 
-local gcdProto = setmetatable({ Debug = addon.Debug }, addon.frameMeta)
+local gcdProto = setmetatable({}, addon.abstractMeta)
 local gcdMeta = { __index = gcdProto }
 addon.gcdProto = gcdProto
 
@@ -87,11 +87,8 @@ function gcdProto:OnDisable()
 	self:Hide()
 end
 
-function addon.SpawnGCDBar(_, width, height)
+function addon:SpawnGCDBar(width, height, from, anchor, to, xOffset, yOffset)
 	local bar = setmetatable(CreateFrame("Frame", "AdiCastBar_GCD", UIParent), gcdMeta)
-	bar:Hide()
-	bar:SetScript('OnEvent', addon.OnEvent)
 	bar:SetScript('OnUpdate', bar.UpdateTimer)
-	bar:InitializeWidget(width, height)
-	return bar
+	return bar:Initialize("gcd", width, height, "Global cooldown", from, anchor, to, xOffset, yOffset)
 end
