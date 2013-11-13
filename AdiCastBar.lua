@@ -4,10 +4,17 @@ AdiCastBar - customized unit cast bars
 All rights reserved.
 --]]
 
-local name, AdiCastBar = ...
+local addonName, addon = ...
 
 if _G.AdiDebug then
-	AdiCastBar.Debug = _G.AdiDebug:GetSink(name)
+	addon.Debug = _G.AdiDebug:GetSink(addonName)
 else
-	function AdiCastBar.Debug() end
+	function addon.Debug() end
 end
+
+function addon:OnEvent(event, ...)
+	return self[event](self, event, ...)
+end
+
+addon.eventFrame = CreateFrame("Frame")
+addon.eventFrame:SetScript(addon.OnEvent)

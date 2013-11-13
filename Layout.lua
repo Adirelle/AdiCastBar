@@ -195,9 +195,7 @@ local function SpawnGCDBar(_, width, height)
 	return self
 end
 
-local function AddonLoaded(self, _, name)
-	if name ~= addonName then return end
-
+function addon:OnLoad()
 	_G.AdiCastBarDB = _G.AdiCastBarDB or {}
 	local db = _G.AdiCastBarDB
 	db.disabled = db.disabled or {}
@@ -251,3 +249,9 @@ local function AddonLoaded(self, _, name)
 	end
 end
 
+addon.eventFrame:RegisterEvent('ADDON_LOADED')
+function addon.eventFrame:ADDON_LOADED(_, name)
+	if name ~= addonName then return end
+	self:UnregisterEvent('ADDON_LOADED')
+	return addon:OnLoad()
+end
