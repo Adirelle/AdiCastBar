@@ -195,11 +195,8 @@ local function SpawnGCDBar(_, width, height)
 	return self
 end
 
-local AdiEvent = LibStub('LibAdiEvent-1.0')
-
 local function AddonLoaded(self, _, name)
 	if name ~= addonName then return end
-	AdiEvent:UnregisterEvent('ADDON_LOADED', AddonLoaded)
 
 	_G.AdiCastBarDB = _G.AdiCastBarDB or {}
 	local db = _G.AdiCastBarDB
@@ -254,4 +251,3 @@ local function AddonLoaded(self, _, name)
 	end
 end
 
-AdiEvent:RegisterEvent('ADDON_LOADED', AddonLoaded)

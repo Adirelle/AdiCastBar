@@ -89,9 +89,7 @@ local function OnDisable(self)
 	self:Hide()
 end
 
-local AdiEvent = LibStub('LibAdiEvent-1.0')
 function addon.InitGCD(self)
-	AdiEvent.Embed(self)
 	self.OnEnable = OnEnable
 	self.OnDisable = OnDisable
 	self:Hide()

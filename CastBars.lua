@@ -485,11 +485,9 @@ local function OnDisable(self)
 	self:Hide()
 end
 
-local AdiEvent = LibStub('LibAdiEvent-1.0')
 function addon.InitCastBar(self)
 	local unit = self.unit
 	if not unit then return print('Ignoring castbar, no unit') end
-	AdiEvent.Embed(self)
 	--@debug@
 	if AdiDebug then
 		AdiDebug:Embed(self, "AdiCastBar")
