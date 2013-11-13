@@ -70,7 +70,7 @@ function barProto:FadeOut(failed)
 	end
 	self.endTime = GetTime()
 	self.castId = nil
-	self:SetScript('OnUpdate', FadingOut)
+	self:SetScript('OnUpdate', self.FadingOut)
 end
 
 function barProto:TimerUpdate()
@@ -164,13 +164,14 @@ function barProto:StartCast(reversed, color, name, text, texture, startTime, end
 	self:SetNotInterruptible(notInterruptible)
 
 	self:SetAlpha(1.0)
-	self:SetScript('OnUpdate', TimerUpdate)
+	self:SetScript('OnUpdate', self.TimerUpdate)
 	self:Show()
 end
 
-function barProto:UNIT_SPELLCAST_START(event, unit, _, _, castId)
+function barProto:UNIT_SPELLCAST_START(event, unit, spell, _, castId)
 	local name, rank, text, texture, startTime, endTime, _, castId, notInterruptible = UnitCastingInfo(unit)
 	self:Debug(event, unit, castId, rank, name, text, texture, startTime, endTime, castId, notInterruptible)
+	self:LatencyEnd(event, unit, spell)
 	return self:StartCast(false, COLORS.CAST, name, text, texture, startTime/1000, endTime/1000, notInterruptible, castId)
 end
 
@@ -208,9 +209,10 @@ end
 barProto.UNIT_SPELLCAST_FAILED = barProto.UNIT_SPELLCAST_INTERRUPTED
 barProto.UNIT_SPELLCAST_FAILED_QUIET = barProto.UNIT_SPELLCAST_INTERRUPTED
 
-function barProto:UNIT_SPELLCAST_CHANNEL_START(event, unit)
+function barProto:UNIT_SPELLCAST_CHANNEL_START(event, unit, spell)
 	local name, _, text, texture, startTime, endTime, _, notInterruptible = UnitChannelInfo(unit)
 	self:Debug(event, unit, name, text, texture, startTime, endTime, notInterruptible)
+	self:LatencyEnd(event, unit, spell)
 	return self:StartCast(true, COLORS.CHANNEL, name, text, texture, startTime/1000, endTime/1000, notInterruptible, "CHANNEL")
 end
 
@@ -218,7 +220,7 @@ function barProto:UNIT_SPELLCAST_CHANNEL_UPDATE(event, unit)
 	if self.castId ~= "CHANNEL" then return end
 	local _, _, _, _, startTime, endTime = UnitChannelInfo(unit)
 	self:Debug(event, unit, startTime, endTime)
-	return SetTime(self, startTime/1000, endTime/1000, true)
+	return self:SetTime(startTime/1000, endTime/1000, true)
 end
 
 function barProto:UNIT_SPELLCAST_CHANNEL_STOP(event, unit)
@@ -345,30 +347,29 @@ function barProto:UNIT_PET(event, unit)
 	return self:PLAYER_ENTERING_WORLD(self, event)
 end
 
-function barProto:LatencyStart(event, unit, spell)
-	if unit and unit ~= self.unit then return end
+function barProto:UNIT_SPELLCAST_SENT(event, unit, spell)
 	self.latency[spell] = nil
 	self.latencyStart[spell] = GetTime()
 end
 
 function barProto:LatencyEnd(event, unit, spell)
-	if unit and unit ~= self.unit then return end
-	local start = self.latencyStart[spell]
-	if start then
-		self.latency[spell] = GetTime() - start
-		self.latencyStart[spell] = nil
+	if self.latency then
+		local start = self.latencyStart[spell]
+		if start then
+			self.latency[spell] = GetTime() - start
+			self.latencyStart[spell] = nil
+		end
 	end
 end
 
-function barProto:UpdateVehicleState(event, unit)
-	if unit and unit ~= 'player' then return end
+function barProto:UNIT_ENTERED_VEHICLE(event, unit)
 	local newUnit = UnitHasVehicleUI('player') and 'vehicle' or 'player'
 	if newUnit ~= self.unit then
-		self:Debug("UpdateVehicleState", unit, "self.unit=", self.unit, "newUnit=", newUnit)
-		self.unit = newUnit
-		return self:PLAYER_ENTERING_WORLD(self)
+		self:OnDisable()
+		self:OnEnable()
 	end
 end
+barProto.UNIT_EXITED_VEHICLE = barProto.UNIT_ENTERED_VEHICLE
 
 local function noop() end
 local function DisableBlizzardFrame(frame)
@@ -379,15 +380,18 @@ local function DisableBlizzardFrame(frame)
 end
 
 function barProto:OnEnable()
-	local unit = self.realUnit
-
-	if self.Latency then
-		self:RegisterUnitEvent("UNIT_SPELLCAST_SENT", LatencyStart)
-		self:RegisterUnitEvent("UNIT_SPELLCAST_START", LatencyEnd)
-		self:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", LatencyEnd)
-	end
+	local unit = self.unit
 
 	self:RegisterEvent("PLAYER_ENTERING_WORLD")
+
+	if self.realUnit == 'player' then
+		if UnitHasVehicleUI('player') then
+			unit = 'vehicle'
+		end
+		self:RegisterEvent("SPELLS_CHANGED")
+		self:RegisterUnitEvent("UNIT_ENTERED_VEHICLE", "player")
+		self:RegisterUnitEvent("UNIT_EXITED_VEHICLE", "player")
+	end
 
 	self:RegisterUnitEvent("UNIT_SPELLCAST_START", unit)
 	self:RegisterUnitEvent("UNIT_SPELLCAST_DELAYED", unit)
@@ -403,6 +407,10 @@ function barProto:OnEnable()
 	self:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP", unit)
 	self:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_INTERRUPTED", unit)
 
+	if self.latency then
+		self:RegisterUnitEvent("UNIT_SPELLCAST_SENT", unit)
+	end
+
 	if unit == "target" then
 		self.PLAYER_TARGET_CHANGED = self.PLAYER_ENTERING_WORLD
 		self:RegisterEvent("PLAYER_TARGET_CHANGED")
@@ -412,17 +420,7 @@ function barProto:OnEnable()
 		self:RegisterEvent("PLAYER_FOCUS_CHANGED")
 
 	elseif unit == "pet" then
-		self:RegisterUnitEvent("UNIT_PET", "pet")
-	end
-
-	if unit == "player" then
-		self:RegisterEvent("SPELLS_CHANGED", SPELLS_CHANGED)
-
-		self:RegisterEvent("PLAYER_ENTERING_WORLD", UpdateVehicleState)
-		self:RegisterEvent("UNIT_ENTERED_VEHICLE", UpdateVehicleState)
-		self:RegisterEvent("UNIT_EXITED_VEHICLE", UpdateVehicleState)
-		UpdateVehicleState(self, "OnEnable")
-
+		self:RegisterUnitEvent("UNIT_PET", "player")
 	end
 
 	self:RegisterUnitEvent("UNIT_AURA", unit)
@@ -430,7 +428,7 @@ function barProto:OnEnable()
 	if IsLoggedIn() then
 		self:PLAYER_ENTERING_WORLD('OnEnable')
 		if unit == "player" then
-			self:SPELLS_CHANGED("OnEnable")
+			self:SPELLS_CHANGED('OnEnable')
 		end
 	end
 end
@@ -440,7 +438,7 @@ function barProto:OnDisable()
 	self:Hide()
 end
 
-function addon.SpawnCastBar(unit, width, height, from, anchor, to, xOffset, yOffset)
+function addon:SpawnCastBar(unit, width, height, from, anchor, to, xOffset, yOffset)
 	local bar = setmetatable(CreateFrame("Frame", "AdiCastBar_"..unit, UIParent), barMeta)
 
 	bar.unit, bar.realUnit = unit, unit
