@@ -19,7 +19,7 @@ local function OnEvent(self, event, ...)
 end
 
 addon.eventFrame = CreateFrame("Frame")
-addon.eventFrame:SetScript(OnEvent)
+addon.eventFrame:SetScript('OnEvent', OnEvent)
 
 local abstractProto = setmetatable({ Debug = addon.Debug }, getmetatable(addon.eventFrame))
 addon.abstractMeta = { __index = abstractProto }
@@ -45,13 +45,13 @@ function abstractProto:Initialize(key, width, height, label, from, anchor, to, x
 	self:Hide()
 	self:SetScript('OnEvent', OnEvent)
 
-	self:SetSize(widget, height)
+	self:SetSize(width, height)
 	self:SetPoint(from, anchor, to, xOffset, yOffset)
 
 	db[key] = db[key] or {}
 	Movable.RegisterMovable(addonName, self, db[key], label)
 
-	self:InitializeWidget(width, heigth, ...)
+	self:InitializeWidget(width, height, ...)
 
 	if self:LM10_IsEnabled() then
 		self:OnEnable()
