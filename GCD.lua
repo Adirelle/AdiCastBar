@@ -40,18 +40,16 @@ elseif class == 'MONK' then
 	spellId = 100787 -- Tiger Palm
 end
 
-if not spellId then
-	print('AdiCastBar: no spell to test GCD for', class)
-	function addon.EnableCastBar() end
-	return
-end
-
 local spellName = GetSpellInfo(spellId)
 
 local GetTime = GetTime
 local GetSpellCooldown = GetSpellCooldown
 
-local function UpdateTimer(self)
+local gcdProto = setmetatable({ Debug = addon.Debug }, addon.frameMeta)
+local gcdMeta = { __index = gcdProto }
+addon.gcdProto = gcdProto
+
+function gcdProto:UpdateTimer()
 	local now = GetTime()
 	if now >= self.endTime then
 		self:Hide()
@@ -59,7 +57,7 @@ local function UpdateTimer(self)
 	self.Spark:SetPoint("CENTER", self, "LEFT", (now - self.startTime) * self:GetWidth() / self.duration, 0)
 end
 
-local function Update(self, event)
+function gcdProto:SPELL_UPDATE_COOLDOWN(event)
 	local start, duration, enable = GetSpellCooldown(spellName)
 	if enable == 1 and start and duration > 0 and duration <= 1.5 then
 		self.startTime = start
@@ -72,25 +70,28 @@ local function Update(self, event)
 	end
 end
 
-local function OnEnable(self)
-	self:RegisterEvent('PLAYER_ENTERING_WORLD', Update)
-	self:RegisterEvent('SPELL_UPDATE_COOLDOWN', Update)
-	self:SetScript('OnUpdate', UpdateTimer)
+gcdProto.PLAYER_ENTERING_WORLD = gcdProto.SPELL_UPDATE_COOLDOWN
+
+function gcdProto:OnEnable()
+	if not spellId then return end
+	self:RegisterEvent('PLAYER_ENTERING_WORLD')
+	self:RegisterEvent('SPELL_UPDATE_COOLDOWN')
 	self:Hide()
 	if IsLoggedIn() then
-		Update(self, "OnEnable")
+		self:SPELL_UPDATE_COOLDOWN("OnEnable")
 	end
 end
 
-local function OnDisable(self)
-	self:UnregisterEvent('PLAYER_ENTERING_WORLD', Update)
-	self:UnregisterEvent('SPELL_UPDATE_COOLDOWN', Update)
-	self:SetScript('OnUpdate', nil)
+function gcdProto:OnDisable()
+	self:UnregisterAllEvents()
 	self:Hide()
 end
 
-function addon.InitGCD(self)
-	self.OnEnable = OnEnable
-	self.OnDisable = OnDisable
-	self:Hide()
+function addon.SpawnGCDBar(_, width, height)
+	local bar = setmetatable(CreateFrame("Frame", "AdiCastBar_GCD", UIParent), gcdMeta)
+	bar:Hide()
+	bar:SetScript('OnEvent', addon.OnEvent)
+	bar:SetScript('OnUpdate', bar.UpdateTimer)
+	bar:InitializeWidget(width, height)
+	return bar
 end

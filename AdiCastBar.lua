@@ -18,3 +18,4 @@ end
 
 addon.eventFrame = CreateFrame("Frame")
 addon.eventFrame:SetScript(addon.OnEvent)
+addon.frameMeta = getmetatable(addon.eventFrame)

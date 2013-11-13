@@ -40,7 +40,11 @@ local COLORS = {
 
 local GetTime = GetTime
 
-local function FadingOut(self)
+local barProto = setmetatable({ Debug = addon.Debug }, addon.frameMeta)
+local barMeta = { __index = barProto }
+addon.castBarProto = barProto
+
+function barProto:FadingOut()
 	local now = GetTime()
 	local alpha = self.fadeDuration - (now - self.endTime)
 	if alpha > 0 then
@@ -51,7 +55,7 @@ local function FadingOut(self)
 	end
 end
 
-local function FadeOut(self, failed)
+function barProto:FadeOut(failed)
 	self:Debug('FadeOut', failed)
 	if self.Latency then
 		self.Latency:Hide()
@@ -69,7 +73,7 @@ local function FadeOut(self, failed)
 	self:SetScript('OnUpdate', FadingOut)
 end
 
-local function TimerUpdate(self)
+function barProto:TimerUpdate()
 	local now = GetTime()
 	if self.reversed then
 		self.Bar:SetValue(self.endTime - now)
@@ -81,7 +85,7 @@ local function TimerUpdate(self)
 	end
 end
 
-local function SetNotInterruptible(self, notInterruptible)
+function barProto:SetNotInterruptible(notInterruptible)
 	if notInterruptible then
 		self.Border:SetBackdropBorderColor(0.5, 0.5, 0.5, 1)
 		self.Shield:Show()
@@ -91,7 +95,7 @@ local function SetNotInterruptible(self, notInterruptible)
 	end
 end
 
-local function SetTime(self, startTime, endTime, delayed)
+function barProto:SetTime(startTime, endTime, delayed)
 	if not delayed then
 		self.startTime = startTime
 		self.delay = nil
@@ -102,7 +106,7 @@ local function SetTime(self, startTime, endTime, delayed)
 	self.Bar:SetMinMaxValues(0, endTime-startTime)
 end
 
-local function StartCast(self, reversed, color, name, text, texture, startTime, endTime, notInterruptible, castId)
+function barProto:StartCast(reversed, color, name, text, texture, startTime, endTime, notInterruptible, castId)
 	local latency = self.Latency
 	if latency and not reversed then
 		local delay
@@ -156,82 +160,80 @@ local function StartCast(self, reversed, color, name, text, texture, startTime, 
 		self.Icon:Hide()
 	end
 
-	SetTime(self, startTime, endTime)
-	SetNotInterruptible(self, notInterruptible)
+	self:SetTime(startTime, endTime)
+	self:SetNotInterruptible(notInterruptible)
 
 	self:SetAlpha(1.0)
 	self:SetScript('OnUpdate', TimerUpdate)
 	self:Show()
 end
 
-local function UNIT_SPELLCAST_START(self, event, unit, _, _, castId)
-	if unit ~= self.unit then return end
+function barProto:UNIT_SPELLCAST_START(event, unit, _, _, castId)
 	local name, rank, text, texture, startTime, endTime, _, castId, notInterruptible = UnitCastingInfo(unit)
 	self:Debug(event, unit, castId, rank, name, text, texture, startTime, endTime, castId, notInterruptible)
-	return StartCast(self, false, COLORS.CAST, name, text, texture, startTime/1000, endTime/1000, notInterruptible, castId)
+	return self:StartCast(false, COLORS.CAST, name, text, texture, startTime/1000, endTime/1000, notInterruptible, castId)
 end
 
-local function UNIT_SPELLCAST_DELAYED(self, event, unit, _, _, castId)
-	if unit ~= self.unit or castId ~= self.castId then return end
+function barProto:UNIT_SPELLCAST_DELAYED(event, unit, _, _, castId)
+	if castId ~= self.castId then return end
 	local _, _, _, _, startTime, endTime = UnitCastingInfo(unit)
 	self:Debug(event, unit, castId, startTime, endTime)
-	return SetTime(self, startTime/1000, endTime/1000, true)
+	return self:SetTime(startTime/1000, endTime/1000, true)
 end
 
-local function UNIT_SPELLCAST_INTERRUPTIBLE(self, event, unit)
-	if unit ~= self.unit or not self.castId then return end
+function barProto:UNIT_SPELLCAST_INTERRUPTIBLE(event, unit)
+	if not self.castId then return end
 	self:Debug(event, unit)
-	return SetNotInterruptible(self, false)
+	return self:SetNotInterruptible(false)
 end
 
-local function UNIT_SPELLCAST_NOT_INTERRUPTIBLE(self, event, unit)
-	if unit ~= self.unit or not self.castId then return end
+function barProto:UNIT_SPELLCAST_NOT_INTERRUPTIBLE(event, unit)
+	if not self.castId then return end
 	self:Debug(event, unit)
-	return SetNotInterruptible(self, true)
+	return self:SetNotInterruptible(true)
 end
 
-local function UNIT_SPELLCAST_STOP(self, event, unit, _, _, castId)
-	if unit ~= self.unit or castId ~= self.castId then return end
+function barProto:UNIT_SPELLCAST_STOP(event, unit, _, _, castId)
+	if castId ~= self.castId then return end
 	self:Debug(event, unit, castId)
-	return FadeOut(self)
+	return self:FadeOut()
 end
 
-local function UNIT_SPELLCAST_INTERRUPTED(self, event, unit, _, _, castId)
-	if unit ~= self.unit or castId ~= self.castId then return end
+function barProto:UNIT_SPELLCAST_INTERRUPTED(event, unit, _, _, castId)
+	if castId ~= self.castId then return end
 	self:Debug(event, unit, castId)
-	return FadeOut(self, true)
+	return self:FadeOut(true)
 end
 
-local UNIT_SPELLCAST_FAILED = UNIT_SPELLCAST_INTERRUPTED
-local UNIT_SPELLCAST_FAILED_QUIET = UNIT_SPELLCAST_INTERRUPTED
+barProto.UNIT_SPELLCAST_FAILED = barProto.UNIT_SPELLCAST_INTERRUPTED
+barProto.UNIT_SPELLCAST_FAILED_QUIET = barProto.UNIT_SPELLCAST_INTERRUPTED
 
-local function UNIT_SPELLCAST_CHANNEL_START(self, event, unit)
-	if unit ~= self.unit then return end
+function barProto:UNIT_SPELLCAST_CHANNEL_START(event, unit)
 	local name, _, text, texture, startTime, endTime, _, notInterruptible = UnitChannelInfo(unit)
 	self:Debug(event, unit, name, text, texture, startTime, endTime, notInterruptible)
-	return StartCast(self, true, COLORS.CHANNEL, name, text, texture, startTime/1000, endTime/1000, notInterruptible, "CHANNEL")
+	return self:StartCast(true, COLORS.CHANNEL, name, text, texture, startTime/1000, endTime/1000, notInterruptible, "CHANNEL")
 end
 
-local function UNIT_SPELLCAST_CHANNEL_UPDATE(self, event, unit)
-	if unit ~= self.unit or self.castId ~= "CHANNEL" then return end
+function barProto:UNIT_SPELLCAST_CHANNEL_UPDATE(event, unit)
+	if self.castId ~= "CHANNEL" then return end
 	local _, _, _, _, startTime, endTime = UnitChannelInfo(unit)
 	self:Debug(event, unit, startTime, endTime)
 	return SetTime(self, startTime/1000, endTime/1000, true)
 end
 
-local function UNIT_SPELLCAST_CHANNEL_STOP(self, event, unit)
-	if unit ~= self.unit or self.castId ~= "CHANNEL" then return end
+function barProto:UNIT_SPELLCAST_CHANNEL_STOP(event, unit)
+	if self.castId ~= "CHANNEL" then return end
 	self:Debug(event, unit)
-	return FadeOut(self)
+	return self:FadeOut()
 end
 
-local function UNIT_SPELLCAST_CHANNEL_INTERRUPTED(self, event, unit)
-	if unit ~= self.unit or self.castId ~= "CHANNEL" then return end
+function barProto:UNIT_SPELLCAST_CHANNEL_INTERRUPTED(event, unit)
+	if self.castId ~= "CHANNEL" then return end
 	self:Debug(event, unit)
-	return FadeOut(self, true)
+	return self:FadeOut(true)
 end
 
-local function SPELLS_CHANGED(self, event)
+function barProto:SPELLS_CHANGED(event)
 	local data = {
 		-- Warlock
 		[689] = 3, -- Drain Life
@@ -260,100 +262,96 @@ local function SPELLS_CHANGED(self, event)
 	end
 end
 
-local UNIT_AURA
-do
-	local DRData, minor = LibStub('DRData-1.0', true)
-	if DRData then
-		local UnitDebuff = UnitDebuff
-		local INTERESTING_CATEGORY = {
-			banish = true,
-			charge = true,
-			cheapshot = true,
-			ctrlstun = true,
-			cyclone = true,
-			disorient = true,
-			fear = true,
-			horror = true,
-			mc = true,
-			rndstun = true,
-			scatters = true,
-			silence = true,
-			sleep = true,
-		}
-		for name, color in pairs(DebuffTypeColor) do
-			COLORS[name] = { color.r, color.g, color.b }
-		end
+function barProto:UNIT_AURA()
+	-- NOOP
+end
 
-		addon.Debug('PvP Debuff support using DRData-1.0', minor)
+local DRData, minor = LibStub('DRData-1.0', true)
+if DRData then
+	local UnitDebuff = UnitDebuff
+	local INTERESTING_CATEGORY = {
+		banish = true,
+		charge = true,
+		cheapshot = true,
+		ctrlstun = true,
+		cyclone = true,
+		disorient = true,
+		fear = true,
+		horror = true,
+		mc = true,
+		rndstun = true,
+		scatters = true,
+		silence = true,
+		sleep = true,
+	}
+	for name, color in pairs(DebuffTypeColor) do
+		COLORS[name] = { color.r, color.g, color.b }
+	end
 
-		local function SearchDebuff(unit)
-			local name, texture, dType, duration, endTime, spellId
-			for i = 1, 4000 do
-				local iName, _, iTexture, _, iDType, iDuration, iEndTime, _, _, _, iSpellId = UnitDebuff(unit, i)
-				if iName then
-					local category = DRData:GetSpellCategory(iSpellId)
-					if category and INTERESTING_CATEGORY[category] and (iDuration or 0) > 0 and iEndTime and (not name or iEndTime > endTime) then
-						name, texture, dType, duration, endTime, spellId = iName, iTexture, iDType, iDuration, iEndTime, iSpellId
-					end
-				else
-					break
+	addon.Debug('PvP Debuff support using DRData-1.0', minor)
+
+	local function SearchDebuff(unit)
+		local name, texture, dType, duration, endTime, spellId
+		for i = 1, 4000 do
+			local iName, _, iTexture, _, iDType, iDuration, iEndTime, _, _, _, iSpellId = UnitDebuff(unit, i)
+			if iName then
+				local category = DRData:GetSpellCategory(iSpellId)
+				if category and INTERESTING_CATEGORY[category] and (iDuration or 0) > 0 and iEndTime and (not name or iEndTime > endTime) then
+					name, texture, dType, duration, endTime, spellId = iName, iTexture, iDType, iDuration, iEndTime, iSpellId
 				end
-			end
-			if name then
-				addon.Debug('Found debuff:', name, 'on:', unit)
-				return name, texture, dType, duration, endTime, spellId
+			else
+				break
 			end
 		end
+		if name then
+			addon.Debug('Found debuff:', name, 'on:', unit)
+			return name, texture, dType, duration, endTime, spellId
+		end
+	end
 
-		function UNIT_AURA(self, event, unit)
-			if unit ~= self.unit then return end
-			local currentId = tonumber(tostring(self.castId):match('^AURA(%d+)$'))
-			if not UnitIsPVP("player") then
-				return not currentId or FadeOut(self)
+	function barProto:UNIT_AURA(event, unit)
+		local currentId = tonumber(tostring(self.castId):match('^AURA(%d+)$'))
+		if not UnitIsPVP("player") then
+			return not currentId or FadeOut(self)
+		end
+		local name, texture, dType, duration, endTime, spellId = SearchDebuff(unit)
+		if spellId then
+			if spellId ~= currentId then
+				self:Debug('Showing debuff:', name, 'on:', unit)
+				self:StartCast(true, COLORS[dType or "none"], name, nil, texture, endTime-duration, endTime, false, 'AURA'..spellId)
 			end
-			local name, texture, dType, duration, endTime, spellId = SearchDebuff(unit)
-			if spellId then
-				if spellId ~= currentId then
-					self:Debug('Showing debuff:', name, 'on:', unit)
-					StartCast(self, true, COLORS[dType or "none"], name, nil, texture, endTime-duration, endTime, false, 'AURA'..spellId)
-				end
-			elseif currentId then
-				self:Debug('Hiding debuff:', GetSpellInfo(currentId), 'on:', unit)
-				FadeOut(self)
-			end
+		elseif currentId then
+			self:Debug('Hiding debuff:', GetSpellInfo(currentId), 'on:', unit)
+			self:FadeOut()
 		end
 	end
 end
 
-local function PLAYER_ENTERING_WORLD(self, event)
+function barProto:PLAYER_ENTERING_WORLD(event)
 	local unit = self.unit
 	self:Debug(event, unit, "casting:", UnitCastingInfo(unit), "channeling:", (UnitChannelInfo(unit)))
 	if UnitCastingInfo(unit) then
-		return UNIT_SPELLCAST_START(self, event, unit)
+		return self:UNIT_SPELLCAST_START(event, unit)
 	elseif UnitChannelInfo(unit) then
-		return UNIT_SPELLCAST_CHANNEL_START(self, event, unit)
+		return self:UNIT_SPELLCAST_CHANNEL_START(event, unit)
 	elseif self:IsShown() then
 		self.castId = nil
 		self:Hide()
 	end
-	if UNIT_AURA then
-		UNIT_AURA(self, event, unit)
-	end
+	self:UNIT_AURA(event, unit)
 end
 
-local function UNIT_PET(self, event, unit)
-	if unit == "player" then
-		return PLAYER_ENTERING_WORLD(self, event)
-	end
+function barProto:UNIT_PET(event, unit)
+	return self:PLAYER_ENTERING_WORLD(self, event)
 end
 
-local function LatencyStart(self, event, unit, spell)
+function barProto:LatencyStart(event, unit, spell)
 	if unit and unit ~= self.unit then return end
 	self.latency[spell] = nil
 	self.latencyStart[spell] = GetTime()
 end
 
-local function LatencyEnd(self, event, unit, spell)
+function barProto:LatencyEnd(event, unit, spell)
 	if unit and unit ~= self.unit then return end
 	local start = self.latencyStart[spell]
 	if start then
@@ -362,13 +360,13 @@ local function LatencyEnd(self, event, unit, spell)
 	end
 end
 
-local function UpdateVehicleState(self, event, unit)
+function barProto:UpdateVehicleState(event, unit)
 	if unit and unit ~= 'player' then return end
 	local newUnit = UnitHasVehicleUI('player') and 'vehicle' or 'player'
 	if newUnit ~= self.unit then
 		self:Debug("UpdateVehicleState", unit, "self.unit=", self.unit, "newUnit=", newUnit)
 		self.unit = newUnit
-		return PLAYER_ENTERING_WORLD(self, event)
+		return self:PLAYER_ENTERING_WORLD(self)
 	end
 end
 
@@ -380,43 +378,46 @@ local function DisableBlizzardFrame(frame)
 	frame:Hide()
 end
 
-local function OnEnable(self)
+function barProto:OnEnable()
 	local unit = self.realUnit
 
 	if self.Latency then
-		self:RegisterEvent("UNIT_SPELLCAST_SENT", LatencyStart)
-		self:RegisterEvent("UNIT_SPELLCAST_START", LatencyEnd)
-		self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START", LatencyEnd)
+		self:RegisterUnitEvent("UNIT_SPELLCAST_SENT", LatencyStart)
+		self:RegisterUnitEvent("UNIT_SPELLCAST_START", LatencyEnd)
+		self:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", LatencyEnd)
 	end
 
-	self:RegisterEvent("PLAYER_ENTERING_WORLD", PLAYER_ENTERING_WORLD)
+	self:RegisterEvent("PLAYER_ENTERING_WORLD")
 
-	self:RegisterEvent("UNIT_SPELLCAST_START", UNIT_SPELLCAST_START)
-	self:RegisterEvent("UNIT_SPELLCAST_DELAYED", UNIT_SPELLCAST_DELAYED)
-	self:RegisterEvent('UNIT_SPELLCAST_INTERRUPTIBLE', UNIT_SPELLCAST_INTERRUPTIBLE)
-	self:RegisterEvent('UNIT_SPELLCAST_NOT_INTERRUPTIBLE', UNIT_SPELLCAST_NOT_INTERRUPTIBLE)
-	self:RegisterEvent("UNIT_SPELLCAST_STOP", UNIT_SPELLCAST_STOP)
-	self:RegisterEvent("UNIT_SPELLCAST_FAILED", UNIT_SPELLCAST_FAILED)
-	self:RegisterEvent("UNIT_SPELLCAST_FAILED_QUIET", UNIT_SPELLCAST_FAILED_QUIET)
-	self:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED", UNIT_SPELLCAST_INTERRUPTED)
+	self:RegisterUnitEvent("UNIT_SPELLCAST_START", unit)
+	self:RegisterUnitEvent("UNIT_SPELLCAST_DELAYED", unit)
+	self:RegisterUnitEvent('UNIT_SPELLCAST_INTERRUPTIBLE', unit)
+	self:RegisterUnitEvent('UNIT_SPELLCAST_NOT_INTERRUPTIBLE', unit)
+	self:RegisterUnitEvent("UNIT_SPELLCAST_STOP", unit)
+	self:RegisterUnitEvent("UNIT_SPELLCAST_FAILED", unit)
+	self:RegisterUnitEvent("UNIT_SPELLCAST_FAILED_QUIET", unit)
+	self:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", unit)
 
-	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_START", UNIT_SPELLCAST_CHANNEL_START)
-	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_UPDATE", UNIT_SPELLCAST_CHANNEL_UPDATE)
-	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_STOP", UNIT_SPELLCAST_CHANNEL_STOP)
-	self:RegisterEvent("UNIT_SPELLCAST_CHANNEL_INTERRUPTED", UNIT_SPELLCAST_CHANNEL_INTERRUPTED)
+	self:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", unit)
+	self:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_UPDATE", unit)
+	self:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP", unit)
+	self:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_INTERRUPTED", unit)
 
 	if unit == "target" then
-		self:RegisterEvent("PLAYER_TARGET_CHANGED", PLAYER_ENTERING_WORLD)
+		self.PLAYER_TARGET_CHANGED = self.PLAYER_ENTERING_WORLD
+		self:RegisterEvent("PLAYER_TARGET_CHANGED")
 
 	elseif unit == "focus" then
-		self:RegisterEvent("PLAYER_FOCUS_CHANGED", PLAYER_ENTERING_WORLD)
+		self.PLAYER_FOCUS_CHANGED = self.PLAYER_ENTERING_WORLD
+		self:RegisterEvent("PLAYER_FOCUS_CHANGED")
 
 	elseif unit == "pet" then
-		self:RegisterEvent("UNIT_PET", UNIT_PET)
+		self:RegisterUnitEvent("UNIT_PET", "pet")
 	end
 
 	if unit == "player" then
 		self:RegisterEvent("SPELLS_CHANGED", SPELLS_CHANGED)
+
 		self:RegisterEvent("PLAYER_ENTERING_WORLD", UpdateVehicleState)
 		self:RegisterEvent("UNIT_ENTERED_VEHICLE", UpdateVehicleState)
 		self:RegisterEvent("UNIT_EXITED_VEHICLE", UpdateVehicleState)
@@ -424,88 +425,28 @@ local function OnEnable(self)
 
 	end
 
-	if UNIT_AURA then
-		self:RegisterEvent("UNIT_AURA", UNIT_AURA)
-	end
+	self:RegisterUnitEvent("UNIT_AURA", unit)
 
 	if IsLoggedIn() then
-		PLAYER_ENTERING_WORLD(self, 'OnEnable')
+		self:PLAYER_ENTERING_WORLD('OnEnable')
 		if unit == "player" then
-			SPELLS_CHANGED(self, "OnEnable")
+			self:SPELLS_CHANGED("OnEnable")
 		end
 	end
 end
 
-local function OnDisable(self)
-	local unit = self.realUnit
-
-	if self.Latency then
-		self:UnregisterEvent("UNIT_SPELLCAST_SENT", LatencyStart)
-		self:UnregisterEvent("UNIT_SPELLCAST_START", LatencyEnd)
-		self:UnregisterEvent("UNIT_SPELLCAST_CHANNEL_START", LatencyEnd)
-	end
-
-	if unit == "player" then
-		self:UnregisterEvent("SPELLS_CHANGED", SPELLS_CHANGED)
-		self:UnregisterEvent("PLAYER_ENTERING_WORLD", UpdateVehicleState)
-		self:UnregisterEvent("UNIT_ENTERED_VEHICLE", UpdateVehicleState)
-		self:UnregisterEvent("UNIT_EXITED_VEHICLE", UpdateVehicleState)
-	end
-
-	self:UnregisterEvent("PLAYER_ENTERING_WORLD", PLAYER_ENTERING_WORLD)
-
-	self:UnregisterEvent("UNIT_SPELLCAST_START", UNIT_SPELLCAST_START)
-	self:UnregisterEvent("UNIT_SPELLCAST_DELAYED", UNIT_SPELLCAST_DELAYED)
-	self:UnregisterEvent('UNIT_SPELLCAST_INTERRUPTIBLE', UNIT_SPELLCAST_INTERRUPTIBLE)
-	self:UnregisterEvent('UNIT_SPELLCAST_NOT_INTERRUPTIBLE', UNIT_SPELLCAST_NOT_INTERRUPTIBLE)
-	self:UnregisterEvent("UNIT_SPELLCAST_STOP", UNIT_SPELLCAST_STOP)
-	self:UnregisterEvent("UNIT_SPELLCAST_FAILED", UNIT_SPELLCAST_FAILED)
-	self:UnregisterEvent("UNIT_SPELLCAST_FAILED_QUIET", UNIT_SPELLCAST_FAILED_QUIET)
-	self:UnregisterEvent("UNIT_SPELLCAST_INTERRUPTED", UNIT_SPELLCAST_INTERRUPTED)
-
-	self:UnregisterEvent("UNIT_SPELLCAST_CHANNEL_START", UNIT_SPELLCAST_CHANNEL_START)
-	self:UnregisterEvent("UNIT_SPELLCAST_CHANNEL_UPDATE", UNIT_SPELLCAST_CHANNEL_UPDATE)
-	self:UnregisterEvent("UNIT_SPELLCAST_CHANNEL_STOP", UNIT_SPELLCAST_CHANNEL_STOP)
-	self:UnregisterEvent("UNIT_SPELLCAST_CHANNEL_INTERRUPTED", UNIT_SPELLCAST_CHANNEL_INTERRUPTED)
-
-	if unit == "target" then
-		self:UnregisterEvent("PLAYER_TARGET_CHANGED", PLAYER_ENTERING_WORLD)
-
-	elseif unit == "focus" then
-		self:UnregisterEvent("PLAYER_FOCUS_CHANGED", PLAYER_ENTERING_WORLD)
-
-	elseif unit == "pet" then
-		self:UnregisterEvent("UNIT_PET", UNIT_PET)
-	end
-
-	if UNIT_AURA then
-		self:UnregisterEvent("UNIT_AURA", UNIT_AURA)
-	end
-
+function barProto:OnDisable()
+	self:UnregisterAllEvents()
 	self:Hide()
 end
 
-function addon.InitCastBar(self)
-	local unit = self.unit
-	if not unit then return print('Ignoring castbar, no unit') end
-	--@debug@
-	if AdiDebug then
-		AdiDebug:Embed(self, "AdiCastBar")
-	else
-	--@end-debug@
-		self.Debug = addon.Debug
-	--@debug@
-	end
-	--@end-debug@
-	self.realUnit = unit
-	self.OnEnable = OnEnable
-	self.OnDisable = OnDisable
-
+function barProto:Initialize(unit)
 	if self.Latency then
 		self.latency = {}
 		self.latencyStart = {}
 	end
 
+	local unit = self.unit
 	if unit == "player" then
 		DisableBlizzardFrame(CastingBarFrame)
 	elseif unit == "target" then
@@ -515,6 +456,13 @@ function addon.InitCastBar(self)
 	elseif unit == "pet" then
 		DisableBlizzardFrame(PetCastingBarFrame)
 	end
+end
 
-	self:Hide()
+function addon.SpawnCastBar(unit, width, height, withLatency)
+	local bar = setmetatable(CreateFrame("Frame", "AdiCastBar_"..unit, UIParent), barMeta)
+	bar:SetScript('OnEvent', addon.OnEvent)
+	bar.unit, bar.realUnit = unit, unit
+	bar:InitializeWidget(width, height, withLatency)
+	bar:Initialize()
+	return bar
 end

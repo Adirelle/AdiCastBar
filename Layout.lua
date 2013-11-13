@@ -73,7 +73,7 @@ local function OnBarValuesChange(bar)
 	bar.Spark:SetPoint("CENTER", bar, "LEFT", width * (current-min) / (max-min), 0)
 end
 
-local function GetTick(self, index)
+function addon.castBarProto:GetTick(index)
 	local tick = self.Ticks[index]
 	if not tick then
 		tick = self.Bar:CreateTexture(nil, "OVERLAY")
@@ -85,17 +85,14 @@ local function GetTick(self, index)
 	return tick
 end
 
-local function HideTicks(self)
+function addon.castBarProto:HideTicks()
 	for i, tick in pairs(self.Ticks) do
 		tick:Hide()
 	end
 end
 
-local function SpawnCastBar(unit, width, height, withLatency)
-	local self = CreateFrame("Frame", "AdiCastBar_"..unit, UIParent)
-	self.unit = unit
-	self:SetWidth(width)
-	self:SetHeight(height)
+function addon.castBarProto:InitializeWidget(width, height, withLatency)
+	self:SetSize(width, height)
 	self:SetBackdrop(BAR_BACKDROP)
 	self:SetBackdropColor(0, 0, 0, 1)
 	self:SetBackdropBorderColor(0, 0, 0, 0)
@@ -142,10 +139,8 @@ local function SpawnCastBar(unit, width, height, withLatency)
 		self.Latency = latency
 	end
 
-	if unit == "player" then
+	if self.unit == "player" then
 		self.Ticks = {}
-		self.GetTick = GetTick
-		self.HideTicks = HideTicks
 	end
 
 	local timeText = bar:CreateFontString(nil, "OVERLAY")
@@ -171,15 +166,10 @@ local function SpawnCastBar(unit, width, height, withLatency)
 	spark:SetWidth(20)
 	spark:SetHeight(height*2.2)
 	bar.Spark = spark
-
-	addon.InitCastBar(self)
-	return self
 end
 
-local function SpawnGCDBar(_, width, height)
-	local self = CreateFrame("Frame", "AdiCastBar_GCD", UIParent)
-	self:SetWidth(width)
-	self:SetHeight(height)
+function addon.gcdProto:InitializeWidget(width, height)
+	self:SetSize(width, height)
 
 	self:SetBackdrop(BAR_BACKDROP)
 	self:SetBackdropColor(0,0,0,1)
@@ -190,9 +180,6 @@ local function SpawnGCDBar(_, width, height)
 	spark:SetWidth(20)
 	spark:SetHeight(height*2.2)
 	self.Spark = spark
-
-	addon.InitGCD(self)
-	return self
 end
 
 function addon:OnLoad()
@@ -202,8 +189,8 @@ function addon:OnLoad()
 
 	local Movable = LibStub('LibMovable-1.0')
 	local function Spawn(spawnFunc, key, label, width, height, from, anchor, to, xOffset, yOffset, ...)
-		addon.Debug('Spawn', 'key=', key, 'label=', label, 'point=', from, anchor, to, xOffset, yOffset, 'spawnArgs=', key, width, height, ...)
-		local bar = spawnFunc(key, width, height, ...)
+		self:Debug('Spawn', 'key=', key, 'label=', label, 'point=', from, anchor, to, xOffset, yOffset, 'spawnArgs=', key, width, height, ...)
+		local bar = self[spawnFunc](key, width, height, ...)
 		bar:SetPoint(from, anchor, to, xOffset, yOffset)
 		bar.LM10_Enable = function(self) db.disabled[key] = nil self:OnEnable() end
 		bar.LM10_Disable = function(self) db.disabled[key] = true self:OnDisable() end
@@ -217,24 +204,24 @@ function addon:OnLoad()
 	end
 
 	local player = Spawn(
-		SpawnCastBar, 'player', "Player casting bar", 250, 20,
+		'SpawnCastBar', 'player', "Player casting bar", 250, 20,
 		"BOTTOM", UIParent, "BOTTOM", 0, 180,
 		true
 	)
 	Spawn(
-		SpawnGCDBar, 'gcd', "Player global cooldown", 250, 4,
+		'SpawnGCDBar', 'gcd', "Player global cooldown", 250, 4,
 		"TOP", player, "BOTTOM", 0, -4
 	)
 	Spawn(
-		SpawnCastBar, 'pet', "Pet casting bar", 200, 15,
+		'SpawnCastBar', 'pet', "Pet casting bar", 200, 15,
 		"BOTTOM", player, "TOP", 0, 10
 	)
 	local target = Spawn(
-		SpawnCastBar, 'target', "Target casting bar", 330, 32,
+		'SpawnCastBar', 'target', "Target casting bar", 330, 32,
 		"TOP", UIParent, "TOP", 0, -220
 	)
 	Spawn(
-		SpawnCastBar, "focus", "Focus casting bar", 250, 20,
+		'SpawnCastBar', "focus", "Focus casting bar", 250, 20,
 		"TOP", target, "BOTTOM", 0, -10
 	)
 
