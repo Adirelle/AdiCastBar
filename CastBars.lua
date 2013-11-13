@@ -81,7 +81,7 @@ function barProto:TimerUpdate()
 		self.Bar:SetValue(now - self.startTime)
 	end
 	if now > self.endTime then
-		return FadeOut(self)
+		return self:FadeOut()
 	end
 end
 
