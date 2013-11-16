@@ -38,6 +38,19 @@ local COLORS = {
 	INTERRUPTED = { 1.0, 0.0, 0.0 },
 }
 
+-- Tick period of channeled spells, defaults to 1
+local TICK_PERIOD = {
+	[740] = 2, -- Tranquility
+}
+
+-- Channeled spells that have a first instant tick
+local INSTANT_TICK = {
+	[  1949] = true, -- Hellfire
+	[ 47540] = true, -- Penance
+	[113656] = true, -- Firsts of Fury
+	[115175] = true, -- Soothing Mist
+}
+
 local GetTime = GetTime
 
 local barProto = setmetatable({}, addon.abstractMeta)
@@ -59,6 +72,9 @@ function barProto:FadeOut(failed)
 	self:Debug('FadeOut', failed)
 	if self.Latency then
 		self.Latency:Hide()
+	end
+	if self.Ticks then
+		self:HideTicks()
 	end
 	self.Bar.Spark:Hide()
 	if failed then
@@ -96,17 +112,33 @@ function barProto:SetNotInterruptible(notInterruptible)
 end
 
 function barProto:SetTime(startTime, endTime, delayed)
-	if not delayed then
+	if not delayed or startTime - self.startTime < 1e-2 or self.tickPeriod then
 		self.startTime = startTime
 		self.delay = nil
 	else
 		self.delay = startTime - self.startTime
 	end
 	self.endTime = endTime
-	self.Bar:SetMinMaxValues(0, endTime-startTime)
+
+	local duration = endTime - startTime
+	self.Bar:SetMinMaxValues(0, duration)
+
+	if self.tickPeriod and self.Ticks then
+		self:HideTicks()
+		local numTicks = ceil((duration - 0.1) / self.tickPeriod)
+		if self.instantFirstTick then
+			numTicks = numTicks + 1
+		end
+		local offset = self.tickPeriod * self.Bar:GetWidth() / duration
+		for i = 1, numTicks do
+			local tick = self:GetTick(i)
+			tick:SetPoint("BOTTOM", self.Bar, "TOPLEFT", (i-1) * offset, -3)
+			tick:Show()
+		end
+	end
 end
 
-function barProto:StartCast(reversed, color, name, text, texture, startTime, endTime, notInterruptible, castId)
+function barProto:StartCast(reversed, color, name, text, texture, startTime, endTime, notInterruptible, castId, tickPeriod, instantFirstTick)
 	local latency = self.Latency
 	if latency and not reversed then
 		local delay
@@ -123,20 +155,8 @@ function barProto:StartCast(reversed, color, name, text, texture, startTime, end
 		end
 	end
 
-	if self.Ticks and self.SpellTicks then
-		self:HideTicks()
-		local num = self.SpellTicks[name]
-		if type(num) == "function" then
-			num = num()
-		end
-		if reversed and num then
-			local offset = self.Bar:GetWidth() / num
-			for i = 1, num do
-				local tick = self:GetTick(i)
-				tick:SetPoint("BOTTOM", self.Bar, "TOPLEFT", offset * (i-1), -3)
-				tick:Show()
-			end
-		end
+	if self.Ticks then
+		self.tickPeriod, self.instantFirstTick = tickPeriod, instantFirstTick
 	end
 
 	self.reversed = reversed
@@ -209,11 +229,12 @@ end
 barProto.UNIT_SPELLCAST_FAILED = barProto.UNIT_SPELLCAST_INTERRUPTED
 barProto.UNIT_SPELLCAST_FAILED_QUIET = barProto.UNIT_SPELLCAST_INTERRUPTED
 
-function barProto:UNIT_SPELLCAST_CHANNEL_START(event, unit, spell)
+function barProto:UNIT_SPELLCAST_CHANNEL_START(event, unit, spell, _, _, spellID)
 	local name, _, text, texture, startTime, endTime, _, notInterruptible = UnitChannelInfo(unit)
 	self:Debug(event, unit, name, text, texture, startTime, endTime, notInterruptible)
 	self:LatencyEnd(event, unit, spell)
-	return self:StartCast(true, COLORS.CHANNEL, name, text, texture, startTime/1000, endTime/1000, notInterruptible, "CHANNEL")
+	local tickPeriod = (TICK_PERIOD[spellID] or 1) / (1 + UnitSpellHaste(unit) / 100)
+	return self:StartCast(true, COLORS.CHANNEL, name, text, texture, startTime/1000, endTime/1000, notInterruptible, "CHANNEL", tickPeriod, INSTANT_TICK[spellID])
 end
 
 function barProto:UNIT_SPELLCAST_CHANNEL_UPDATE(event, unit)
@@ -233,38 +254,6 @@ function barProto:UNIT_SPELLCAST_CHANNEL_INTERRUPTED(event, unit)
 	if self.castId ~= "CHANNEL" then return end
 	self:Debug(event, unit)
 	return self:FadeOut(true)
-end
-
-function barProto:SPELLS_CHANGED(event)
-	local data = {
-		-- Warlock
-		[689] = 3, -- Drain Life
-		[5740] = 4, -- Rain of Fire
-		-- [85403] = 15, -- Hellfire
-		[103103] = 4, -- Malefic Grasp
-		-- Druid
-		[16914] = 10, -- Hurricane
-		[740] = 4, -- Tranquility
-		[106996] = 10, -- Astral Storm
-		[127663] = 4, -- Astral Communion
-		-- Priest
-		[15407] = 3, -- Mind Flay
-		[48045] = 5, -- Mind Sear
-		[47540] = 3, -- Penance
-		-- Mage
-		[5143] = 5, -- Arcane Missile
-		[10] = 8, -- Blizzard
-		-- Monk
-		[117952] = 6, -- Crackling Jade Lightning
-		[115175] = 8, -- Soothing Mist -- TODO: check if 8 or 4...
-	}
-	self.SpellTicks = {}
-	for id, num in pairs(data) do
-		local name = GetSpellInfo(id)
-		if name then
-			self.SpellTicks[name] = num
-		end
-	end
 end
 
 function barProto:PLAYER_ENTERING_WORLD(event)
@@ -325,7 +314,6 @@ function barProto:OnEnable()
 		if UnitHasVehicleUI('player') then
 			unit = 'vehicle'
 		end
-		self:RegisterEvent("SPELLS_CHANGED")
 		self:RegisterUnitEvent("UNIT_ENTERED_VEHICLE", "player")
 		self:RegisterUnitEvent("UNIT_EXITED_VEHICLE", "player")
 	end
