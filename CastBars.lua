@@ -264,71 +264,6 @@ function barProto:SPELLS_CHANGED(event)
 	end
 end
 
-function barProto:UNIT_AURA()
-	-- NOOP
-end
-
-local DRData, minor = LibStub('DRData-1.0', true)
-if DRData then
-	local UnitDebuff = UnitDebuff
-	local INTERESTING_CATEGORY = {
-		banish = true,
-		charge = true,
-		cheapshot = true,
-		ctrlstun = true,
-		cyclone = true,
-		disorient = true,
-		fear = true,
-		horror = true,
-		mc = true,
-		rndstun = true,
-		scatters = true,
-		silence = true,
-		sleep = true,
-	}
-	for name, color in pairs(DebuffTypeColor) do
-		COLORS[name] = { color.r, color.g, color.b }
-	end
-
-	addon.Debug('PvP Debuff support using DRData-1.0', minor)
-
-	local function SearchDebuff(unit)
-		local name, texture, dType, duration, endTime, spellId
-		for i = 1, 4000 do
-			local iName, _, iTexture, _, iDType, iDuration, iEndTime, _, _, _, iSpellId = UnitDebuff(unit, i)
-			if iName then
-				local category = DRData:GetSpellCategory(iSpellId)
-				if category and INTERESTING_CATEGORY[category] and (iDuration or 0) > 0 and iEndTime and (not name or iEndTime > endTime) then
-					name, texture, dType, duration, endTime, spellId = iName, iTexture, iDType, iDuration, iEndTime, iSpellId
-				end
-			else
-				break
-			end
-		end
-		if name then
-			addon.Debug('Found debuff:', name, 'on:', unit)
-			return name, texture, dType, duration, endTime, spellId
-		end
-	end
-
-	function barProto:UNIT_AURA(event, unit)
-		local currentId = tonumber(tostring(self.castId):match('^AURA(%d+)$'))
-		if not UnitIsPVP("player") then
-			return not currentId or FadeOut(self)
-		end
-		local name, texture, dType, duration, endTime, spellId = SearchDebuff(unit)
-		if spellId then
-			if spellId ~= currentId then
-				self:Debug('Showing debuff:', name, 'on:', unit)
-				self:StartCast(true, COLORS[dType or "none"], name, nil, texture, endTime-duration, endTime, false, 'AURA'..spellId)
-			end
-		elseif currentId then
-			self:Debug('Hiding debuff:', GetSpellInfo(currentId), 'on:', unit)
-			self:FadeOut()
-		end
-	end
-end
-
 function barProto:PLAYER_ENTERING_WORLD(event)
 	local unit = self.unit
 	self:Debug(event, unit, "casting:", UnitCastingInfo(unit), "channeling:", (UnitChannelInfo(unit)))
@@ -340,7 +275,6 @@ function barProto:PLAYER_ENTERING_WORLD(event)
 		self.castId = nil
 		self:Hide()
 	end
-	self:UNIT_AURA(event, unit)
 end
 
 function barProto:UNIT_PET(event, unit)
@@ -422,8 +356,6 @@ function barProto:OnEnable()
 	elseif unit == "pet" then
 		self:RegisterUnitEvent("UNIT_PET", "player")
 	end
-
-	self:RegisterUnitEvent("UNIT_AURA", unit)
 
 	if IsLoggedIn() then
 		self:PLAYER_ENTERING_WORLD('OnEnable')
