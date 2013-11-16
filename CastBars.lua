@@ -254,6 +254,9 @@ function barProto:SPELLS_CHANGED(event)
 		-- Mage
 		[5143] = 5, -- Arcane Missile
 		[10] = 8, -- Blizzard
+		-- Monk
+		[117952] = 6, -- Crackling Jade Lightning
+		[115175] = 8, -- Soothing Mist -- TODO: check if 8 or 4...
 	}
 	self.SpellTicks = {}
 	for id, num in pairs(data) do
