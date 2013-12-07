@@ -39,16 +39,53 @@ local COLORS = {
 }
 
 -- Tick period of channeled spells, defaults to 1
-local TICK_PERIOD = {
-	[740] = 2, -- Tranquility
+local NUM_TICKS = {
+	[    10] =  8, -- Blizzard
+	[   689] =  6, -- Drain Life
+	[   740] =  4, -- Tranquility
+	[   755] =  6, -- Health Funnel
+	[  1120] =  6, -- Drain Soul
+	[  1949] = 14, -- Hellfire
+	[  4629] =  6, -- Rain of Fire
+	[  5143] =  5, -- Arcane Missiles
+	[ 12051] =  3, -- Evocation
+	[ 15407] =  3, -- Mind Flay
+	[ 16914] = 10, -- Hurricane
+	[ 32000] =  5, -- Mind Sear
+	[ 47540] =  2, -- Penance
+	[ 64843] =  4, -- Divine Hymn
+	[ 64901] =  4, -- Hymn of Hope
+	[103103] =  4, -- Malefic Grasp
+	[106996] = 10, -- Astral Storm
+	[108371] =  6, -- Harvest Life
+	[113656] =  4, -- Fists of fury
+	[115175] =  8, -- Soothing Mist
+	[117952] =  6, -- Crackling Jade Lightning
+	[120360] = 15, -- Barrage
+	[129197] =  3, -- Mind Flay (insanity)
 }
+
+-- Mana Tea is a special case
+do
+	local manaTeaCharge = GetSpellInfo(115867)
+	NUM_TICKS[115294] = function(unit)
+		return select(4, UnitBuff(unit, manaTeaCharge)) or 0
+	end
+end
 
 -- Channeled spells that have a first instant tick
 local INSTANT_TICK = {
 	[  1949] = true, -- Hellfire
+	[ 12051] = true, -- Evocation
 	[ 47540] = true, -- Penance
 	[113656] = true, -- Firsts of Fury
 	[115175] = true, -- Soothing Mist
+}
+
+-- Channeled spells that gain more ticks thanks to haste
+local GAIN_TICKS = {
+	[64843] = true, -- Divine Hymn
+	[64901] = true, -- Hymn of Hope
 }
 
 local GetTime = GetTime
@@ -111,6 +148,28 @@ function barProto:SetNotInterruptible(notInterruptible)
 	end
 end
 
+function barProto:ShowTicks(numTicks, instantTick, addTicks, haste)
+	if not self.Ticks then return end
+	self:HideTicks()
+	numTicks = numTicks or 0
+	self.numTicks, self.instantTick, self.addTicks, self.haste = numTicks, instantTick, addTicks, haste
+	if numTicks > 0 then
+		if addTicks then
+			numTicks = floor(numTicks * haste + 0.5)
+		end
+		local totalNum = numTicks
+		if instantTick then
+			totalNum = totalNum + 1
+		end
+		local offset = self.Bar:GetWidth() / numTicks
+		for i = 1, totalNum do
+			local tick = self:GetTick(i)
+			tick:SetPoint("BOTTOM", self.Bar, "TOPLEFT", (i-1) * offset, -3)
+			tick:Show()
+		end
+	end
+end
+
 function barProto:SetTime(startTime, endTime, delayed)
 	if not delayed or startTime - self.startTime < 1e-2 or self.tickPeriod then
 		self.startTime = startTime
@@ -122,23 +181,9 @@ function barProto:SetTime(startTime, endTime, delayed)
 
 	local duration = endTime - startTime
 	self.Bar:SetMinMaxValues(0, duration)
-
-	if self.tickPeriod and self.Ticks then
-		self:HideTicks()
-		local numTicks = ceil((duration - 0.1) / self.tickPeriod)
-		if self.instantFirstTick then
-			numTicks = numTicks + 1
-		end
-		local offset = self.tickPeriod * self.Bar:GetWidth() / duration
-		for i = 1, numTicks do
-			local tick = self:GetTick(i)
-			tick:SetPoint("BOTTOM", self.Bar, "TOPLEFT", (i-1) * offset, -3)
-			tick:Show()
-		end
-	end
 end
 
-function barProto:StartCast(reversed, color, name, text, texture, startTime, endTime, notInterruptible, castId, tickPeriod, instantFirstTick)
+function barProto:StartCast(reversed, color, name, text, texture, startTime, endTime, notInterruptible, castId)
 	local latency = self.Latency
 	if latency and not reversed then
 		local delay
@@ -153,10 +198,6 @@ function barProto:StartCast(reversed, color, name, text, texture, startTime, end
 			latency:SetWidth(self.Bar:GetWidth() * min(delay / (endTime - startTime), 1.0))
 			latency:Show()
 		end
-	end
-
-	if self.Ticks then
-		self.tickPeriod, self.instantFirstTick = tickPeriod, instantFirstTick
 	end
 
 	self.reversed = reversed
@@ -233,15 +274,18 @@ function barProto:UNIT_SPELLCAST_CHANNEL_START(event, unit, spell, _, _, spellID
 	local name, _, text, texture, startTime, endTime, _, notInterruptible = UnitChannelInfo(unit)
 	self:Debug(event, unit, name, text, texture, startTime, endTime, notInterruptible)
 	self:LatencyEnd(event, unit, spell)
-	local tickPeriod = (TICK_PERIOD[spellID] or 1) / (1 + UnitSpellHaste(unit) / 100)
-	return self:StartCast(true, COLORS.CHANNEL, name, text, texture, startTime/1000, endTime/1000, notInterruptible, "CHANNEL", tickPeriod, INSTANT_TICK[spellID])
+	self:StartCast(true, COLORS.CHANNEL, name, text, texture, startTime/1000, endTime/1000, notInterruptible, "CHANNEL")
+	local numTicks = NUM_TICKS[spellID]
+	if type(numTicks) == "function" then numTicks = numTicks(unit) end
+	return self:ShowTicks(numTicks, INSTANT_TICK[spellID], GAIN_TICKS[spellID], (1+UnitSpellHaste(unit)/100))
 end
 
 function barProto:UNIT_SPELLCAST_CHANNEL_UPDATE(event, unit)
 	if self.castId ~= "CHANNEL" then return end
 	local _, _, _, _, startTime, endTime = UnitChannelInfo(unit)
 	self:Debug(event, unit, startTime, endTime)
-	return self:SetTime(startTime/1000, endTime/1000, true)
+	self:SetTime(startTime/1000, endTime/1000, true)
+	return self:ShowTicks(self.numTicks, self.instantTick, self.addTicks, self.haste)
 end
 
 function barProto:UNIT_SPELLCAST_CHANNEL_STOP(event, unit)
