@@ -300,8 +300,23 @@ function barProto:UNIT_SPELLCAST_CHANNEL_INTERRUPTED(event, unit)
 	return self:FadeOut(true)
 end
 
+local function GetActualUnit(unit)
+	if unit == "player" then
+		return UnitHasVehicleUI('player') and 'vehicle' or 'player'
+	elseif unit == "pet" then
+		return UnitHasVehicleUI('player') and 'player' or 'pet'
+	else
+		return unit
+	end
+end
+
 function barProto:PLAYER_ENTERING_WORLD(event)
 	local unit = self.unit
+	if unit ~= GetActualUnit(self.realUnit) then
+		self:OnDisable()
+		self:OnEnable()
+		return
+	end
 	self:Debug(event, unit, "casting:", UnitCastingInfo(unit), "channeling:", (UnitChannelInfo(unit)))
 	if UnitCastingInfo(unit) then
 		return self:UNIT_SPELLCAST_START(event, unit)
@@ -333,10 +348,8 @@ function barProto:LatencyEnd(event, unit, spell)
 end
 
 function barProto:UNIT_ENTERED_VEHICLE(event, unit)
-	local newUnit = UnitHasVehicleUI('player') and 'vehicle' or 'player'
-	if newUnit ~= self.unit then
-		self:OnDisable()
-		self:OnEnable()
+	if unit == "player" then
+		return self:PLAYER_ENTERING_WORLD(event)
 	end
 end
 barProto.UNIT_EXITED_VEHICLE = barProto.UNIT_ENTERED_VEHICLE
@@ -350,14 +363,12 @@ local function DisableBlizzardFrame(frame)
 end
 
 function barProto:OnEnable()
-	local unit = self.unit
+	local unit = GetActualUnit(self.realUnit)
+	self.unit = unit
 
 	self:RegisterEvent("PLAYER_ENTERING_WORLD")
 
-	if self.realUnit == 'player' then
-		if UnitHasVehicleUI('player') then
-			unit = 'vehicle'
-		end
+	if self.realUnit == 'player' or self.realUnit == 'pet' then
 		self:RegisterUnitEvent("UNIT_ENTERED_VEHICLE", "player")
 		self:RegisterUnitEvent("UNIT_EXITED_VEHICLE", "player")
 	end
@@ -388,15 +399,12 @@ function barProto:OnEnable()
 		self.PLAYER_FOCUS_CHANGED = self.PLAYER_ENTERING_WORLD
 		self:RegisterEvent("PLAYER_FOCUS_CHANGED")
 
-	elseif unit == "pet" then
+	elseif self.realUnit == "pet" then
 		self:RegisterUnitEvent("UNIT_PET", "player")
 	end
 
 	if IsLoggedIn() then
 		self:PLAYER_ENTERING_WORLD('OnEnable')
-		if unit == "player" then
-			self:SPELLS_CHANGED('OnEnable')
-		end
 	end
 end
 
