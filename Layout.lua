@@ -1,6 +1,6 @@
 --[[
 AdiCast Bar - customized unit cast bars
-(c) 2009-2013 Adirelle (adirelle@gmail.com)
+(c) 2009-2014 Adirelle (adirelle@gmail.com)
 All rights reserved.
 --]]
 
