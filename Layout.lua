@@ -30,6 +30,7 @@ local FONT_PATH, FONT_SIZE, FONT_FLAGS = GameFontWhite:GetFont()
 local LSM_FONT = "ABF"
 local LSM_STATUSBAR = "BantoBar"
 
+local RegisterFont, RegisterTexture
 do
 	function RegisterFont(fs)
 		fs:SetFont(FONT_PATH, FONT_SIZE, FONT_FLAGS)
