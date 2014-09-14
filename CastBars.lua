@@ -62,6 +62,7 @@ local NUM_TICKS = {
 	[115175] =  8, -- Soothing Mist
 	[117952] =  6, -- Crackling Jade Lightning
 	[120360] = 15, -- Barrage
+	[127663] =  4, -- Astral Communion
 	[129197] =  3, -- Mind Flay (insanity)
 }
 
