@@ -17,27 +17,27 @@ local UnitClass = _G.UnitClass
 local _, class = UnitClass('player')
 local spellId
 if class == 'DEATHKNIGHT' then
-	spellId = 45902 -- Blood Strike
+	spellId = 50842 -- Blood Boil
 elseif class == 'DRUID' then
-	spellId = 50464 -- Healing Touch
+	spellId = 5176 -- Wrath
 elseif class == 'HUNTER' then
-	spellId = 1978 -- Serpent Sting
+	spellId = 3044 -- Arcane Shot
 elseif class == 'MAGE' then
-	spellId = 133 -- Fireball
+	spellId = 44614 -- Frostfire Bolt
 elseif class == 'PALADIN' then
-	spellId = 19750 -- Flash of Light
+	spellId = 35395 -- Crusader Strike
 elseif class == 'PRIEST' then
-	spellId = 2061 -- Flash Heal
+	spellId = 585 -- Smite
 elseif class == 'ROGUE' then
 	spellId = 1752 -- Sinister Strike
 elseif class == 'SHAMAN' then
-	spellId = 331 -- Healing Wave
+	spellId = 403 -- Lightning Bolt
 elseif class == 'WARLOCK' then
-	spellId = 348 -- Immolate
+	spellId = 686 -- Shadow Bolt
 elseif class == 'WARRIOR' then
 	spellId = 6673 -- Battle Shout
 elseif class == 'MONK' then
-	spellId = 100787 -- Tiger Palm
+	spellId = 100780 -- Jab
 end
 
 local spellName = GetSpellInfo(spellId)
