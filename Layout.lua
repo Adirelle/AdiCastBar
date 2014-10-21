@@ -27,12 +27,12 @@ local BORDER_BACKDROP = {
 local BAR_TEXTURE = [[Interface\TargetingFrame\UI-StatusBar]]
 local FONT_PATH, FONT_SIZE, FONT_FLAGS = GameFontWhite:GetFont()
 
-local LSM_FONT = "ABF"
-local LSM_STATUSBAR = "BantoBar"
+local DEFAULT_LSM_FONT = "ABF"
+local DEFAULT_LSM_STATUSBAR = "BantoBar"
 
 local RegisterFont, RegisterTexture
 do
-	function RegisterFont(fs)
+	local function UpdateFont(fs)
 		fs:SetFont(FONT_PATH, FONT_SIZE, FONT_FLAGS)
 		fs:SetShadowColor(0,0,0,0.5)
 		fs:SetShadowOffset(1, -1)
@@ -44,12 +44,17 @@ do
 
 	local lsm = LibStub('LibSharedMedia-3.0', true)
 	if lsm then
-		BAR_TEXTURE = lsm:Fetch("statusbar", LSM_STATUSBAR, true) or BAR_TEXTURE
+		BAR_TEXTURE = lsm:Fetch("statusbar", DEFAULT_LSM_STATUSBAR, true) or BAR_TEXTURE
+		FONT_PATH = lsm:Fetch("statusbar", DEFAULT_LSM_FONT, true) or FONT_PATH
 
-		local function LibSharedMedia_SetGlobal(tex, event, media, value)
+		local function LibSharedMedia_SetGlobal(widget, event, media, value)
 			if media == "statusbar" then
-				BAR_TEXTURE = lsm:Fetch("statusbar", value)
-				UpdateTexture(tex)
+				BAR_TEXTURE = lsm:Fetch(media, value)
+				UpdateTexture(widget)
+			end
+			if media == "font" then
+				FONT_PATH = lsm:Fetch(media, value)
+				UpdateFont(widget)
 			end
 		end
 
@@ -57,8 +62,14 @@ do
 			UpdateTexture(tex)
 			lsm.RegisterCallback(tex, 'LibSharedMedia_SetGlobal', LibSharedMedia_SetGlobal)
 		end
+
+		function RegisterFont(fs)
+			UpdateFont(fs)
+			lsm.RegisterCallback(fs, 'LibSharedMedia_SetGlobal', LibSharedMedia_SetGlobal)
+		end
 	else
 		RegisterTexture = UpdateTexture
+		RegisterFont = UpdateFont
 	end
 end
 
