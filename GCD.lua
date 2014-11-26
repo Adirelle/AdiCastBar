@@ -14,33 +14,7 @@ local IsLoggedIn = _G.IsLoggedIn
 local print = _G.print
 local UnitClass = _G.UnitClass
 
-local _, class = UnitClass('player')
-local spellId
-if class == 'DEATHKNIGHT' then
-	spellId = 50842 -- Blood Boil
-elseif class == 'DRUID' then
-	spellId = 5176 -- Wrath
-elseif class == 'HUNTER' then
-	spellId = 3044 -- Arcane Shot
-elseif class == 'MAGE' then
-	spellId = 44614 -- Frostfire Bolt
-elseif class == 'PALADIN' then
-	spellId = 35395 -- Crusader Strike
-elseif class == 'PRIEST' then
-	spellId = 585 -- Smite
-elseif class == 'ROGUE' then
-	spellId = 1752 -- Sinister Strike
-elseif class == 'SHAMAN' then
-	spellId = 403 -- Lightning Bolt
-elseif class == 'WARLOCK' then
-	spellId = 686 -- Shadow Bolt
-elseif class == 'WARRIOR' then
-	spellId = 6673 -- Battle Shout
-elseif class == 'MONK' then
-	spellId = 100780 -- Jab
-end
-
-local spellName = GetSpellInfo(spellId)
+local spellId = 61304 -- Global Cooldown
 
 local GetTime = GetTime
 local GetSpellCooldown = GetSpellCooldown
@@ -58,7 +32,7 @@ function gcdProto:UpdateTimer()
 end
 
 function gcdProto:SPELL_UPDATE_COOLDOWN(event)
-	local start, duration, enable = GetSpellCooldown(spellName)
+	local start, duration, enable = GetSpellCooldown(spellId)
 	if enable == 1 and start and duration > 0 and duration <= 1.5 then
 		self.startTime = start
 		self.duration = duration
