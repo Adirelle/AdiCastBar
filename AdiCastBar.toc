@@ -1,4 +1,4 @@
-## Interface: 60000
+## Interface: 70000
 
 ## Title: AdiCastBar
 ## Notes: Light-weight, enhanced casting bars.
@@ -16,4 +16,3 @@ AdiCastBar.lua
 CastBars.lua
 GCD.lua
 Layout.lua
-
