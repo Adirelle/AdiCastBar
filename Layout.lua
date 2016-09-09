@@ -85,24 +85,6 @@ local function OnBarValuesChange(bar)
 	bar.Spark:SetPoint("CENTER", bar, "LEFT", width * (current-min) / (max-min), 0)
 end
 
-function addon.castBarProto:GetTick(index)
-	local tick = self.Ticks[index]
-	if not tick then
-		tick = self.Bar:CreateTexture(nil, "OVERLAY")
-		tick:SetSize(7, 8)
-		tick:SetTexture([[Interface\BUTTONS\UI-SortArrow]])
-		tick:SetTexCoord(2/16, 8/16, 0, 1)
-		self.Ticks[index] = tick
-	end
-	return tick
-end
-
-function addon.castBarProto:HideTicks()
-	for i, tick in pairs(self.Ticks) do
-		tick:Hide()
-	end
-end
-
 function addon.castBarProto:InitializeWidget(width, height, withLatency)
 	self:SetBackdrop(BAR_BACKDROP)
 	self:SetBackdropColor(0, 0, 0, 1)
@@ -148,10 +130,6 @@ function addon.castBarProto:InitializeWidget(width, height, withLatency)
 		latency:SetBlendMode("BLEND")
 		latency:SetHeight(height)
 		self.Latency = latency
-	end
-
-	if self.unit == "player" then
-		self.Ticks = {}
 	end
 
 	local timeText = bar:CreateFontString(nil, "OVERLAY")
