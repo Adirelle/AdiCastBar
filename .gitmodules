@@ -1,0 +1,6 @@
+[submodule "libs/LibMovable-1.0"]
+	path = libs/LibMovable-1.0
+	url = ../LibMovable-1.0.git
+[submodule "libs/LibStub"]
+	path = libs/LibStub
+	url = https://github.com/wowace-mirror/LibStub.git
