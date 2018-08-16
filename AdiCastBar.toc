@@ -1,4 +1,4 @@
-## Interface: 70000
+## Interface: 80000
 
 ## Title: AdiCastBar
 ## Notes: Light-weight, enhanced casting bars.
